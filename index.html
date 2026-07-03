@@ -6,6 +6,7 @@
 <title>Revenue Dashboard — HCODE 11771</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',sans-serif;background:#f0f4f8;color:#1a202c;font-size:14px}
@@ -121,6 +122,19 @@ input[type=file]{display:none}
 
 /* 2-col grid */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* Fund summary cards */
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.fcard{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.07);border-top:4px solid var(--fc);position:relative}
+.fcard .fh{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:var(--fc);margin-bottom:12px}
+.fcard .fbig{font-size:24px;font-weight:800;color:#1a202c;line-height:1}
+.fcard .fbig small{font-size:12px;color:#9ca3af;font-weight:500}
+.fmetrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.fmetric{background:#f9fafb;border-radius:8px;padding:8px 10px}
+.fmetric .fl{font-size:10px;color:#6b7280;margin-bottom:2px}
+.fmetric .fv{font-size:15px;font-weight:700;color:#374151}
+.fsoon{position:absolute;inset:0;background:rgba(255,255,255,.72);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#9ca3af;font-weight:600;flex-direction:column;gap:4px}
+@media(max-width:900px){.fgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -134,8 +148,11 @@ input[type=file]{display:none}
   <div class="nav-s">รายสิทธิ์</div>
   <div class="nav-i" onclick="go('sso')">💙 SSO ประกันสังคม</div>
   <div class="nav-i" onclick="go('nhso')">🟢 สปสช (ปี 69)</div>
+  <div class="nav-i" onclick="go('cgd')">🏛️ กรมบัญชีกลาง</div>
   <div class="nav-s">วิเคราะห์</div>
   <div class="nav-i" onclick="go('hmain')">🏥 รพ.ต้นทาง (HMAIN)</div>
+  <div class="nav-i" onclick="go('compare')">📊 เปรียบเทียบ รพ.</div>
+  <div class="nav-i" onclick="go('visits')">👥 Visit & HN</div>
   <div class="nav-s">ระบบ</div>
   <div class="nav-i" onclick="go('upload')">⬆ Upload ไฟล์</div>
   <div class="nav-i" onclick="go('settings')">⚙ Settings</div>
@@ -145,7 +162,7 @@ input[type=file]{display:none}
 <div class="main">
 <header>
   <h1 id="pg-title">ภาพรวมทั้งหมด</h1>
-  <span class="hb hb-mock">⚡ Mock Data</span>
+  <span class="hb hb-live">🟢 Live (Supabase)</span>
   <button class="btn btn-o" onclick="doExport()">⬇ Export</button>
 </header>
 <div class="content">
@@ -171,6 +188,9 @@ input[type=file]{display:none}
     </div>
   </div>
 
+  <!-- สรุปรายสิทธิ์ (เงิน/visit/HN/บาทต่อหัว) -->
+  <div class="fgrid" id="ov-funds"></div>
+
   <!-- Main chart + filters -->
   <div class="card">
     <div class="tb">
@@ -191,6 +211,7 @@ input[type=file]{display:none}
     <div class="leg" style="margin-top:10px">
       <div class="li"><div class="ld" style="background:#3b82f6"></div>💙 SSO</div>
       <div class="li"><div class="ld" style="background:#10b981"></div>🟢 สปสช</div>
+      <div class="li"><div class="ld" style="background:#f59e0b"></div>🏛️ กรมบัญชีกลาง</div>
     </div>
   </div>
 
@@ -219,9 +240,8 @@ input[type=file]{display:none}
         <th>เดือน</th>
         <th class="r">💙 SSO</th>
         <th class="r">🟢 สปสช</th>
+        <th class="r">🏛️ กรมบัญชีกลาง</th>
         <th class="r">รวม</th>
-        <th class="r">%SSO</th>
-        <th class="r">%สปสช</th>
         <th class="r">เทียบเดือนก่อน</th>
       </tr></thead>
       <tbody id="tb-ov"></tbody>
@@ -270,7 +290,7 @@ input[type=file]{display:none}
       </div>
       <div class="tb" style="margin-bottom:4px">
         <span style="font-size:11px;color:#9ca3af;width:36px;flex-shrink:0">เดือน</span>
-        <div class="pills" id="sso-mo-pills"></div>
+        <select id="sso-mo-sel" onchange="sm(this.value)" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
       </div>
       <div class="cw"><canvas id="chart-sso"></canvas></div>
       <div class="leg">
@@ -317,7 +337,7 @@ input[type=file]{display:none}
       <div class="lb">รวม REP อนุมัติ</div><div class="vl" id="nk-rep">—</div><div class="sb" id="nk-rep-s">—</div>
     </div>
     <div class="kpi" style="--c:#9d174d">
-      <div class="lb">WEL (ข้าราชการ)</div><div class="vl" id="nk-wel">—</div><div class="sb" id="nk-wel-s">—</div>
+      <div class="lb">WEL (ขรก.ท้องถิ่น อปท.)</div><div class="vl" id="nk-wel">—</div><div class="sb" id="nk-wel-s">—</div>
     </div>
     <div class="kpi" style="--c:#1d4ed8">
       <div class="lb">UCS (บัตรทอง)</div><div class="vl" id="nk-ucs">—</div><div class="sb" id="nk-ucs-s">—</div>
@@ -338,7 +358,7 @@ input[type=file]{display:none}
     </div>
     <div class="tb" style="margin-bottom:4px">
       <span style="font-size:11px;color:#9ca3af;width:36px;flex-shrink:0">เดือน</span>
-      <div class="pills" id="nhso-mo-pills"></div>
+      <select id="nhso-mo-sel" onchange="nm(this.value)" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
     </div>
     <div class="cw"><canvas id="chart-nhso"></canvas></div>
     <div class="leg">
@@ -364,6 +384,47 @@ input[type=file]{display:none}
   </div>
 </div>
 
+<!-- ══ CGD (กรมบัญชีกลาง) ══ -->
+<div id="page-cgd" class="page">
+  <div class="kr k4">
+    <div class="kpi" style="--c:#f59e0b">
+      <div class="lb">🏛️ STM จ่ายจริงรวม</div><div class="vl" id="ck-stm">—</div><div class="sb" id="ck-stm-s">—</div>
+    </div>
+    <div class="kpi" style="--c:#d97706">
+      <div class="lb">จำนวนเคส (Visit)</div><div class="vl" id="ck-rows">—</div><div class="sb" id="ck-rows-s">—</div>
+    </div>
+    <div class="kpi" style="--c:#7c3aed">
+      <div class="lb">HN (คนไข้)</div><div class="vl" id="ck-hn">—</div><div class="sb" id="ck-hn-s">—</div>
+    </div>
+    <div class="kpi" style="--c:#059669">
+      <div class="lb">เฉลี่ยต่อเคส</div><div class="vl" id="ck-avg">—</div><div class="sb" id="ck-avg-s">—</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tb" style="flex-wrap:wrap;gap:8px">
+      <div class="tb-t">กรมบัญชีกลาง รายเดือน (STM จ่ายจริง)</div>
+      <div class="pills" id="cgd-yr-pills">
+        <div class="pill active" onclick="cgf('all',this)">ทั้งหมด</div>
+        <div class="pill" onclick="cgf('2025',this)">ปี 68</div>
+        <div class="pill" onclick="cgf('2026',this)">ปี 69</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:#6b7280">เดือน</span>
+        <select id="cgd-mo-sel" onchange="cgm(this.value)" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
+      </div>
+    </div>
+    <div class="cw"><canvas id="chart-cgd"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="ct">ตารางรายเดือน</div>
+    <table>
+      <thead><tr><th>เดือน</th><th class="r">STM จ่ายจริง</th><th class="r">เคส</th><th class="r">HN</th><th class="r">บาท/เคส</th><th class="r">เทียบเดือนก่อน</th></tr></thead>
+      <tbody id="tb-cgd"></tbody><tfoot id="tf-cgd"></tfoot>
+    </table>
+    <p class="note">* ไฟล์ CSMBS_RT (ฉายแสงสิทธิ์ข้าราชการ) — ไม่มี รพ.ต้นทาง (รักษาที่ รพ.เราเอง)</p>
+  </div>
+</div>
+
 <!-- ══ HMAIN ══ -->
 <div id="page-hmain" class="page">
   <div class="kr k4">
@@ -382,14 +443,15 @@ input[type=file]{display:none}
   </div>
 
   <div class="card">
-    <div class="tb">
+    <div class="tb" style="flex-wrap:wrap;gap:6px">
       <div class="tb-t">ยอดแยกตาม รพ.ต้นทาง (Top 15)</div>
       <div class="pills" id="hmain-year-pills">
         <div class="pill active" onclick="hfy('all',this)">ทั้งหมด</div>
         <div class="pill" onclick="hfy('2025',this)">ปี 68</div>
         <div class="pill" onclick="hfy('2026',this)">ปี 69</div>
       </div>
-      <div class="pills" style="margin-left:8px">
+      <select id="hmain-mo-sel" onchange="hfm(this.value)" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
+      <div class="pills" style="margin-left:4px">
         <div class="pill active" onclick="hfs('all',this)" id="hf-all">ทั้งหมด</div>
         <div class="pill" onclick="hfs('ext',this)" id="hf-ext">เฉพาะส่งตัว</div>
       </div>
@@ -411,7 +473,7 @@ input[type=file]{display:none}
     <table>
       <thead><tr>
         <th>#</th><th>HCODE</th><th>ชื่อ รพ.</th>
-        <th class="r">💙 SSO</th><th class="r">🟢 สปสช</th><th class="r">รวม</th><th class="r">%</th>
+        <th class="r">💙 SSO</th><th class="r">🟢 สปสช</th><th class="r">รวม</th><th class="r">เคส</th><th class="r">%</th>
       </tr></thead>
       <tbody id="tb-hmain"></tbody><tfoot id="tf-hmain"></tfoot>
     </table>
@@ -419,50 +481,178 @@ input[type=file]{display:none}
   </div>
 </div>
 
+<!-- ══ COMPARE ══ -->
+<div id="page-compare" class="page">
+
+  <!-- Filter bar -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="tb" style="flex-wrap:wrap;gap:10px">
+      <div class="tb-t">เปรียบเทียบ รพ.ต้นทาง (สูงสุด 5 แห่ง)</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:#6b7280">ปี</span>
+        <div class="pills" id="cmp-yr-pills">
+          <div class="pill active" onclick="cmpYear('all',this)">ทั้งหมด</div>
+          <div class="pill" onclick="cmpYear('2025',this)">ปี 68</div>
+          <div class="pill" onclick="cmpYear('2026',this)">ปี 69</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:#6b7280">เดือน</span>
+        <select id="cmp-mo-sel" onchange="cmpMonth(this.value)" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
+      </div>
+      <div class="pills" id="cmp-fund-pills">
+        <div class="pill active" onclick="cmpFund('all',this)">รวม</div>
+        <div class="pill" onclick="cmpFund('sso',this)">SSO</div>
+        <div class="pill" onclick="cmpFund('nhso',this)">สปสช</div>
+      </div>
+    </div>
+    <!-- Selected tags -->
+    <div style="margin-top:10px;padding:10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px">รพ.ที่เลือก (กดที่ตารางด้านล่างเพื่อเลือก/ยกเลิก):</div>
+      <div id="cmp-tags" style="display:flex;flex-wrap:wrap;gap:6px;min-height:26px"></div>
+    </div>
+  </div>
+
+  <!-- Summary comparison table -->
+  <div class="card" id="cmp-summary-card" style="display:none">
+    <div class="ct">ตารางเปรียบเทียบ</div>
+    <div style="overflow-x:auto">
+      <table id="tb-cmp-summary">
+        <thead><tr>
+          <th>รพ.</th>
+          <th class="r">SSO (฿)</th>
+          <th class="r">สปสช (฿)</th>
+          <th class="r">รวม (฿)</th>
+          <th class="r">สัดส่วน</th>
+          <th class="r">เคส SSO</th>
+          <th class="r">เคส สปสช</th>
+          <th class="r">รวมเคส</th>
+        </tr></thead>
+        <tbody id="tb-cmp-sum-body"></tbody>
+      </table>
+      <p class="note">* เคส = จำนวนครั้งที่ส่งเบิก (visit) | ตามช่วงเดือนที่เลือก</p>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="card">
+    <div class="ct">กราฟเปรียบเทียบรายเดือน</div>
+    <div style="position:relative;height:340px"><canvas id="chart-cmp"></canvas></div>
+    <div class="leg" id="cmp-leg"></div>
+  </div>
+
+  <!-- Hospital list -->
+  <div class="card">
+    <div class="tb" style="margin-bottom:10px">
+      <div class="tb-t">เลือก รพ. จากรายการ</div>
+      <input id="cmp-search" type="text" placeholder="ค้นหา HCODE / ชื่อ..."
+        style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;width:200px"
+        oninput="renderCmpList()">
+    </div>
+    <table>
+      <thead><tr><th style="width:36px"></th><th>HCODE</th><th>ชื่อ รพ.</th><th class="r">SSO (฿)</th><th class="r">สปสช (฿)</th><th class="r">รวม (฿)</th><th class="r">รวมเคส</th></tr></thead>
+      <tbody id="tb-cmp"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ VISITS ══ -->
+<div id="page-visits" class="page">
+  <div class="kr k4">
+    <div class="kpi" style="--c:#2563eb">
+      <div class="lb">💙 Visit SSO</div><div class="vl" id="vk-sso-v">—</div><div class="sb" id="vk-sso-vs">—</div>
+    </div>
+    <div class="kpi" style="--c:#10b981">
+      <div class="lb">🟢 Visit สปสช</div><div class="vl" id="vk-nhso-v">—</div><div class="sb" id="vk-nhso-vs">—</div>
+    </div>
+    <div class="kpi" style="--c:#f59e0b">
+      <div class="lb">🏛️ Visit กรมบัญชีกลาง</div><div class="vl" id="vk-sso-hn">—</div><div class="sb" id="vk-sso-hns">—</div>
+    </div>
+    <div class="kpi" style="--c:#7c3aed">
+      <div class="lb">Visit รวมทั้งหมด</div><div class="vl" id="vk-nhso-hn">—</div><div class="sb" id="vk-nhso-hns">—</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tb" style="flex-wrap:wrap;gap:8px">
+      <div class="tb-t">Visit · HN · HN ใหม่ (เทียบกันรายเดือน)</div>
+      <div class="pills" id="vis-fund-pills">
+        <div class="pill active" onclick="visFundSel('all',this)">รวม 3 สิทธิ์</div>
+        <div class="pill" onclick="visFundSel('sso',this)">💙 SSO</div>
+        <div class="pill" onclick="visFundSel('nhso',this)">🟢 สปสช</div>
+        <div class="pill" onclick="visFundSel('cgd',this)">🏛️ กรมบัญชีกลาง</div>
+      </div>
+      <div class="pills" id="vis-yr-pills">
+        <div class="pill active" onclick="visYear('all',this)">ทั้งหมด</div>
+        <div class="pill" onclick="visYear('2025',this)">ปี 68</div>
+        <div class="pill" onclick="visYear('2026',this)">ปี 69</div>
+      </div>
+    </div>
+    <div style="position:relative;height:320px"><canvas id="chart-vis"></canvas></div>
+    <div class="leg">
+      <div class="li"><div class="ld" style="background:#3b82f6"></div>Visit (ครั้งที่มา)</div>
+      <div class="li"><div class="ld" style="background:#8b5cf6"></div>HN (คนไข้)</div>
+      <div class="li"><div class="ld" style="background:#f59e0b"></div>HN ใหม่</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">ตารางรายเดือน</div>
+    <table>
+      <thead><tr>
+        <th>เดือน</th>
+        <th class="r">Visit SSO</th><th class="r">HN SSO</th>
+        <th class="r">Visit สปสช</th><th class="r">HN สปสช</th>
+        <th class="r">Visit CGD</th><th class="r">HN CGD</th>
+        <th class="r">HN ใหม่ SSO</th><th class="r">HN ใหม่ สปสช</th>
+      </tr></thead>
+      <tbody id="tb-vis"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- ══ UPLOAD ══ -->
 <div id="page-upload" class="page">
-  <div class="g2" style="max-width:800px">
+  <div class="ab" style="max-width:840px">
+    <div class="at">📤 วิธีใช้ — อัปเดตทุกเดือน</div>
+    <p style="font-size:12px;color:#7c2d12;line-height:1.7">
+      1. ลากไฟล์ล่าสุด (cumulative) ลงช่อง → ระบบอ่านเองว่ามีเดือนอะไรบ้าง<br>
+      2. ดูสรุป: เดือนไหน <b>ใหม่</b> (จะเพิ่ม) เดือนไหน <b>มีแล้ว</b> (ข้าม)<br>
+      3. กด <b>ยืนยัน</b> → เพิ่มเฉพาะเดือนใหม่ขึ้น Supabase → Dashboard อัปเดตทันที
+    </p>
+  </div>
+  <div class="g2" style="max-width:840px">
     <div class="card">
       <div class="ct">💙 Upload SSO</div>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">ไฟล์ SSOCAC cumulative — ระบบ diff อัตโนมัติ</p>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">ไฟล์ SSOCAC (cumulative) — .xlsx</p>
       <div class="upa" onclick="document.getElementById('f-sso').click()">
         <div style="font-size:28px;margin-bottom:6px">📂</div>
-        <p style="font-size:13px">คลิกเลือก / drag & drop</p>
-        <small style="color:#6b7280">CH003_11771 - SSOCAC_ส่งเบิก_YYYYMMDD.xlsx</small>
+        <p style="font-size:13px">คลิกเลือกไฟล์ SSO</p>
+        <small style="color:#6b7280">CH003_11771 - SSOCAC_ส่งเบิก_*.xlsx</small>
         <input type="file" id="f-sso" accept=".xlsx" onchange="prevUp('sso',this)">
       </div>
-      <div id="pv-sso" style="display:none;margin-top:10px;font-size:12px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:7px;padding:10px"></div>
-      <div id="act-sso" style="display:none;margin-top:8px;gap:6px">
-        <button class="btn btn-p" onclick="doUp('sso')">✅ ยืนยัน</button>
-        <button class="btn btn-o" onclick="cancelUp('sso')">ยกเลิก</button>
-      </div>
+      <div id="pv-sso" style="display:none;margin-top:10px"></div>
     </div>
     <div class="card">
       <div class="ct">🟢 Upload สปสช</div>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">ไฟล์ REP+STM รวม (xlsx)</p>
-      <div style="display:flex;gap:6px;margin-bottom:10px">
-        <select id="nhso-yr" style="flex:1;padding:6px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px">
-          <option value="2568">ปี 68</option><option value="2569">ปี 69</option>
-        </select>
-      </div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">ไฟล์ REP+STM (cumulative) — Sheet: REP + STM</p>
       <div class="upa" onclick="document.getElementById('f-nhso').click()">
         <div style="font-size:28px;margin-bottom:6px">📂</div>
-        <p style="font-size:13px">คลิกเลือก / drag & drop</p>
-        <small style="color:#6b7280">REP+STM_YYYY.xlsx (Sheet: REP + STM)</small>
-        <input type="file" id="f-nhso" accept=".xlsx,.csv" onchange="prevUp('nhso',this)">
+        <p style="font-size:13px">คลิกเลือกไฟล์ สปสช</p>
+        <small style="color:#6b7280">(UC_)REP+STM_*.xlsx</small>
+        <input type="file" id="f-nhso" accept=".xlsx" onchange="prevUp('nhso',this)">
       </div>
-      <div id="pv-nhso" style="display:none;margin-top:10px;font-size:12px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:7px;padding:10px"></div>
+      <div id="pv-nhso" style="display:none;margin-top:10px"></div>
     </div>
-  </div>
-  <div class="card" style="max-width:800px">
-    <div class="ct">📋 ประวัติ Upload</div>
-    <table>
-      <thead><tr><th>วันที่</th><th>ไฟล์</th><th>สิทธิ์</th><th class="r">แถวใหม่</th><th>สถานะ</th></tr></thead>
-      <tbody>
-        <tr><td>25/06/69</td><td>CH003_11771 - SSOCAC_ส่งเบิก_25690615.xlsx</td><td>SSO</td><td class="r">20,514</td><td><span class="badge br">✅</span></td></tr>
-        <tr><td>25/06/69</td><td>REP+STM_2026.xlsx</td><td>สปสช</td><td class="r">6,405</td><td><span class="badge bg">✅</span></td></tr>
-      </tbody>
-    </table>
+    <div class="card">
+      <div class="ct">🏛️ Upload กรมบัญชีกลาง</div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">ไฟล์ CSMBS_RT (แต่ละ Sheet = ปี พ.ศ.)</p>
+      <div class="upa" onclick="document.getElementById('f-cgd').click()">
+        <div style="font-size:28px;margin-bottom:6px">📂</div>
+        <p style="font-size:13px">คลิกเลือกไฟล์ กรมบัญชีกลาง</p>
+        <small style="color:#6b7280">CSMBS_RT *.xlsx</small>
+        <input type="file" id="f-cgd" accept=".xlsx" onchange="prevUp('cgd',this)">
+      </div>
+      <div id="pv-cgd" style="display:none;margin-top:10px"></div>
+    </div>
   </div>
 </div>
 
@@ -500,6 +690,8 @@ GET  /api/hmain/combined</pre>
 
 <script>
 /* ═══ CONFIG ═══ */
+Chart.register(ChartDataLabels);
+Chart.defaults.plugins.datalabels = {display:false};
 const USE_API = true;
 const SB_URL = "https://vyezmgqngcejydpwjhyn.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5ZXptZ3FuZ2NlanlkcHdqaHluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3ODQwNzAsImV4cCI6MjA5ODM2MDA3MH0.X4GhpnvA0ZJymuwxyylPzgmw4hArpOfWJKpViFPF_uQ";
@@ -671,11 +863,18 @@ const SSO_HM = {"11771":{"2025-02":{"stm":2160162,"opd":949022,"ipd":1211140},"2
 // NHSO HMAIN by month (ปี 68 + 69)
 const NHSO_HM = {"00935":{"2026-01":5850,"2026-04":5850},"10660":{"2025-01":15900,"2025-02":150},"10663":{"2025-09":5850},"10685":{"2025-01":1602839,"2025-02":1308510,"2025-03":1391264,"2025-04":1428015,"2025-05":1766356,"2025-06":1133775,"2025-07":1302923,"2025-08":1337766,"2025-09":1575379,"2025-10":1795632,"2025-11":1183913,"2025-12":1024913,"2026-01":1239306,"2026-02":1251933,"2026-03":1127222,"2026-04":1027602},"10687":{"2025-01":44800,"2025-03":39250,"2025-04":11200,"2025-05":11200},"10690":{"2025-08":5850},"10697":{"2025-01":28715,"2025-02":900,"2025-03":300,"2025-04":5550,"2025-05":5550,"2025-06":5650,"2025-07":5550,"2025-08":5850,"2025-10":115884,"2025-11":192875,"2025-12":133870,"2026-01":82140,"2026-02":13200,"2026-03":80677,"2026-04":107793},"10724":{"2026-03":21150,"2026-04":80070},"10727":{"2026-04":5850},"10728":{"2025-02":5550},"10731":{"2025-01":470,"2025-03":7030,"2025-04":300,"2025-05":150,"2025-06":280,"2025-09":1270,"2025-10":300},"10752":{"2025-01":297618,"2025-02":119680,"2025-03":114657,"2025-04":93678,"2025-05":93233,"2025-06":76580,"2025-07":375386,"2025-08":300031,"2025-09":233539,"2025-10":336665,"2025-11":365024,"2025-12":39110,"2026-01":199621,"2026-02":364076,"2026-03":283512,"2026-04":223086},"10753":{"2025-01":1016616,"2025-02":882743,"2025-03":736528,"2025-04":339382,"2025-05":630558,"2025-06":844400,"2025-07":796580,"2025-08":601555,"2025-09":811602,"2025-10":749552,"2025-11":838216,"2025-12":855096,"2026-01":786951,"2026-02":627950,"2026-03":678012,"2026-04":639819},"10754":{"2025-01":472265,"2025-02":239473,"2025-03":42490,"2025-04":175100,"2025-05":465941,"2025-06":369100,"2025-07":302630,"2025-08":107351,"2025-09":17850,"2025-10":43100,"2025-11":113470,"2025-12":60550,"2026-01":73030,"2026-02":50035,"2026-03":69570,"2026-04":73920},"10755":{"2025-01":39620,"2025-02":329040,"2025-03":385039,"2025-04":162654,"2025-05":108755,"2025-06":206280,"2025-07":254460,"2025-08":102720,"2025-09":321045,"2025-10":158156,"2025-11":117230,"2025-12":97960,"2026-01":77940,"2026-02":76340,"2026-03":84265,"2026-04":96525},"10761":{"2025-03":11200},"10762":{"2025-01":11200,"2025-04":16750,"2025-06":11200},"10763":{"2025-03":16850,"2025-04":16750,"2025-07":11200},"10765":{"2025-01":22400,"2025-03":11200,"2025-04":11200},"10766":{"2025-03":22400,"2025-04":11200},"10767":{"2025-04":11200,"2026-03":150},"10790":{"2025-02":150,"2025-05":150,"2025-07":56410,"2025-08":107010,"2025-10":150},"10802":{"2026-03":150},"10833":{"2025-02":5650,"2025-08":12460,"2025-09":12400,"2025-12":6550,"2026-04":40890},"10850":{"2025-02":43440,"2025-03":50880,"2025-05":150,"2025-12":5850,"2026-04":29807},"10851":{"2025-01":5700,"2025-02":24350,"2025-03":63785,"2025-05":5650,"2025-06":30250,"2025-07":31065,"2025-09":6000,"2025-10":13750,"2025-11":74393,"2025-12":115805,"2026-01":109210,"2026-02":8040,"2026-04":150},"10852":{"2025-01":77290,"2025-02":300,"2025-04":150,"2025-05":150},"10853":{"2025-02":5550,"2025-05":5550,"2025-08":22250,"2025-09":33400,"2025-11":150,"2026-02":29400,"2026-03":84160,"2026-04":25050},"10854":{"2025-04":5550,"2025-05":150,"2025-08":150,"2025-09":12400,"2025-10":150,"2026-01":32680,"2026-03":53485,"2026-04":120583},"10855":{"2025-01":150,"2025-02":1150,"2025-04":16750,"2025-08":12400,"2025-09":12800,"2025-10":15000,"2025-11":150,"2026-03":150},"10856":{"2025-01":84730,"2025-02":56030,"2025-03":5700,"2025-05":150,"2025-06":5550,"2025-07":11200,"2025-11":69990,"2025-12":850,"2026-01":6550,"2026-02":55070,"2026-03":76410},"10870":{"2025-02":11200},"10895":{"2025-09":24700},"11043":{"2025-06":150},"11173":{"2025-09":5850},"11214":{"2026-04":5850},"11218":{"2026-01":5850},"11254":{"2025-04":16380,"2025-05":29763,"2025-06":54825},"11255":{"2026-03":150},"11294":{"2026-01":5850},"11295":{"2025-11":30940,"2025-12":37680},"11306":{"2026-03":150},"11365":{"2026-03":150},"11469":{"2025-10":150,"2025-11":6550,"2025-12":30100,"2026-01":37200,"2026-02":81440,"2026-03":208405,"2026-04":201645},"11470":{"2025-01":80580,"2025-02":150,"2025-03":109761,"2025-04":493001,"2025-05":182642,"2025-06":28717,"2025-07":45200,"2025-08":219755,"2025-09":641145,"2025-10":452557,"2025-11":281484,"2025-12":381208,"2026-01":658063,"2026-02":453613,"2026-03":579230,"2026-04":543486},"11472":{"2025-12":5870,"2026-02":790},"11536":{"2025-01":18550,"2025-02":58213,"2025-03":150},"11537":{"2025-01":5550,"2025-03":5550,"2025-04":1716,"2025-09":150},"11538":{"2025-02":5550,"2025-03":5550,"2025-04":16450,"2025-05":91780,"2025-06":150,"2025-10":54040,"2025-11":93564,"2025-12":14865,"2026-01":3369,"2026-02":4314,"2026-03":9728,"2026-04":5808},"11541":{"2025-08":5850,"2025-11":6550},"11552":{"2026-01":5850},"11583":{"2025-11":6550},"11592":{"2025-12":39730,"2026-01":23040,"2026-02":150,"2026-04":13100},"11629":{"2026-03":150,"2026-04":11700},"11631":{"2025-02":150,"2025-03":18100,"2025-04":76050,"2025-05":150,"2025-07":2550},"11703":{"2025-09":68980,"2025-10":31440,"2025-11":39360},"11769":{"2025-02":150,"2025-03":150,"2025-07":100,"2026-01":5803,"2026-02":3703,"2026-03":15283,"2026-04":4795},"11775":{"2025-06":39700,"2025-07":117765,"2025-08":5850,"2025-09":55465,"2025-10":99830,"2025-11":179280,"2025-12":200328,"2026-01":177890,"2026-02":183746,"2026-03":236803,"2026-04":30090},"11802":{"2025-04":11200},"13647":{"2026-03":150},"13653":{"2025-01":150328,"2025-02":212980,"2025-03":138738,"2025-04":360,"2025-06":1000,"2025-07":50},"13660":{"2025-08":5850,"2026-04":12400},"13666":{"2025-03":11200},"13667":{"2025-02":150,"2025-03":27870,"2025-04":16750,"2025-06":5550,"2025-07":14050,"2025-08":91770,"2025-11":5850,"2026-04":5850},"13669":{"2026-04":6550},"13671":{"2026-01":12400,"2026-04":6550},"13673":{"2025-03":5550,"2026-01":5850},"13679":{"2025-01":5550,"2025-04":5550,"2025-06":28600,"2025-07":112528,"2025-08":6000,"2026-04":5850},"13680":{"2025-03":5550,"2025-04":5550,"2025-07":5550},"13682":{"2025-02":5550,"2025-04":11200,"2025-05":5550,"2025-06":13950,"2025-07":107530,"2025-08":40290},"13684":{"2026-04":5850},"13688":{"2025-01":185028,"2025-02":174010,"2025-03":75430,"2025-04":232638,"2025-05":344613,"2025-06":223318,"2025-07":150450,"2025-08":56050,"2026-01":11700},"13689":{"2025-02":5550,"2025-03":17610,"2025-04":29140,"2025-05":89603,"2025-06":103678,"2025-07":61470,"2025-08":6150,"2025-12":5850,"2026-02":2700},"13693":{"2025-02":19500,"2025-03":145441,"2025-04":127379,"2025-05":29050,"2025-06":123962,"2025-07":158325,"2025-08":201625},"13695":{"2025-01":5550},"13698":{"2025-07":43540,"2025-08":97320,"2025-12":5850},"13699":{"2025-01":150,"2025-04":5550,"2025-05":5550,"2025-07":11100},"13700":{"2025-01":11550,"2025-02":5550,"2025-03":30400,"2025-04":76980,"2025-05":26340,"2025-06":19550,"2025-07":102265,"2025-08":178815,"2026-02":5870},"14641":{"2026-04":5850},"14818":{"2025-11":27400,"2025-12":39472,"2026-01":150,"2026-02":5870},"15049":{"2025-01":79180,"2025-02":25590,"2025-03":108610,"2025-04":91414,"2025-05":36040,"2025-06":150180,"2025-07":71590,"2025-08":115780,"2025-09":354702,"2025-10":548014,"2025-11":680973,"2025-12":463851,"2026-01":417441,"2026-02":548794,"2026-03":712029,"2026-04":466168},"21755":{"2025-08":5850,"2025-12":5850},"22455":{"2025-01":181890,"2025-02":68040,"2025-03":103322,"2025-04":11550,"2025-05":5550,"2025-06":11100,"2025-07":11200,"2025-08":69000,"2025-12":150,"2026-01":5850,"2026-03":300,"2026-04":11700},"23159":{"2025-01":450,"2025-02":27750,"2025-03":5550,"2025-04":11550,"2025-05":11100,"2025-07":5550},"23948":{"2025-02":11200},"24036":{"2026-03":35531,"2026-04":41640},"24979":{"2025-01":5550},"25015":{"2026-03":150,"2026-04":5850},"28785":{"2025-01":51090,"2025-02":23050,"2025-03":114149,"2025-04":333381,"2025-05":167223,"2025-06":124102,"2025-07":243724,"2025-08":189172,"2025-09":8550,"2025-10":6150,"2025-11":44450,"2025-12":126985,"2026-01":98460,"2026-02":94210,"2026-03":36990,"2026-04":76378},"31157":{"2025-05":11200},"31158":{"2025-01":11200,"2025-04":5550},"31159":{"2025-06":5550},"31327":{"2025-02":5550,"2026-04":12400},"41321":{"2025-01":11200},"41334":{"2025-04":60300,"2025-05":107865,"2025-06":150},"41367":{"2026-03":19750,"2026-04":58170},"41425":{"2025-03":11200},"41522":{"2025-07":5550},"41619":{"2025-05":5550},"41620":{"2025-01":39100,"2025-02":25440,"2025-03":18250,"2025-04":91170,"2025-05":30690,"2025-06":150},"41621":{"2025-01":5700,"2025-02":150,"2025-04":150,"2025-05":11200},"41712":{"2025-02":59600,"2025-03":81928,"2025-04":150,"2025-05":5550,"2025-06":2850},"41785":{"2025-06":5550},"41797":{"2025-01":150410,"2025-02":221890,"2025-03":162494,"2025-04":185646,"2025-05":290580,"2025-06":150458,"2025-07":19450,"2025-08":66650,"2026-02":6020},"44366":{"2025-12":3350,"2026-03":150},"51701":{"2025-12":5850},"77468":{"2025-01":5550,"2025-03":150},"77646":{"2025-06":23760,"2025-07":150},"935":{"2025-01":31690,"2025-02":13800,"2025-03":97170,"2025-04":72800,"2025-05":36400,"2025-06":112710,"2025-07":13350,"2025-08":12000,"2025-12":150},"GA000":{"2026-04":11700}};
 
+// Visit/HN แยกราย รพ. (โหลดจาก Supabase) [hcode][month]={v:visits,u:hn_unique}
+let SSO_VIS={}, NHSO_VIS={};
+
+// กรมบัญชีกลาง (CSMBS_RT) รายเดือน — จ่ายจริง(STM), rows, HN (โหลดจาก Supabase)
+let M_CGD = {};
+
 /* ═══ HELPERS ═══ */
 const MTH={'01':'ม.ค.','02':'ก.พ.','03':'มี.ค.','04':'เม.ย.','05':'พ.ค.','06':'มิ.ย.','07':'ก.ค.','08':'ส.ค.','09':'ก.ย.','10':'ต.ค.','11':'พ.ย.','12':'ธ.ค.'};
 const lm=k=>{const[y,m]=k.split('-');return MTH[m]+(y==='2025'?'68':'69');};
 const fmt=n=>Math.round(n||0).toLocaleString('th-TH');
 const fmtM=n=>((n||0)/1e6).toFixed(2)+'M';
+const fmtK=n=>{n=n||0;const a=Math.abs(n);if(a>=1e6)return(n/1e6).toFixed(a>=1e7?1:2)+'M';if(a>=1e3)return(n/1e3).toFixed(a>=1e4?0:1)+'K';return Math.round(n).toString();};
 const hn=h=>HMAP[h]||'';
 
 /* ═══ SSO STATE ═══ */
@@ -688,16 +887,27 @@ const sfkeys=()=>Object.keys(M_SSO).sort().filter(k=>{
 function updSSOMoPills(){
   const avail=Object.keys(M_SSO).filter(k=>sYear==='all'||k.startsWith(sYear)).map(k=>k.split('-')[1]);
   const uniq=[...new Set(avail)].sort();
-  const pills=document.getElementById('sso-mo-pills');
-  pills.innerHTML=`<div class="pill ${sMonth==='all'?'active':''}" onclick="sm('all',this)">ทั้งหมด</div>`+
-    uniq.map(m=>`<div class="pill ${sMonth===m?'active':''}" onclick="sm('${m}',this)">${MTH[m]}</div>`).join('');
+  const sel=document.getElementById('sso-mo-sel');
+  sel.innerHTML=`<option value="all">ทุกเดือน</option>`+uniq.map(m=>`<option value="${m}" ${sMonth===m?'selected':''}>${MTH[m]}</option>`).join('');
+  sel.value=sMonth;
 }
 
 /* ═══ HMAIN STATE ═══ */
-let hYear='all', hMode='all', hmainChart=null;
+let hYear='all', hMonth='all', hMode='all', hmainChart=null;
+function updHmainMoPills(){
+  const allKeys=[...new Set([
+    ...Object.values(SSO_HM).flatMap(m=>Object.keys(m)),
+    ...Object.values(NHSO_HM).flatMap(m=>Object.keys(m))
+  ])].filter(k=>hYear==='all'||k.startsWith(hYear==='2025'?'2025':'2026')).sort();
+  const uniq=[...new Set(allKeys.map(k=>k.split('-')[1]))];
+  const sel=document.getElementById('hmain-mo-sel');
+  sel.innerHTML=`<option value="all">ทุกเดือน</option>`+uniq.map(m=>`<option value="${m}" ${hMonth===m?'selected':''}>${MTH[m]||m}</option>`).join('');
+  sel.value=hMonth;
+}
+function hfm(m){hMonth=m;updHmain();}
 
 /* ═══ NAV ═══ */
-const TITLES={overview:'ภาพรวมทั้งหมด',sso:'SSO ประกันสังคม',nhso:'สปสช',hmain:'รพ.ต้นทาง (HMAIN)',upload:'Upload ไฟล์',settings:'Settings'};
+const TITLES={overview:'ภาพรวมทั้งหมด',sso:'SSO ประกันสังคม',nhso:'สปสช',cgd:'กรมบัญชีกลาง',hmain:'รพ.ต้นทาง (HMAIN)',compare:'เปรียบเทียบ รพ.',visits:'Visit & HN',upload:'Upload ไฟล์',settings:'Settings'};
 function go(p){
   document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
@@ -731,13 +941,23 @@ function updSSOchart(){
       {label:'IPD',data:keys.map(k=>M_SSO[k].IPD),backgroundColor:'#7c3aed',borderColor:'#7c3aed',stack:'s',borderRadius:3,tension:.3,fill:false,pointRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)} ฿`}}},
-      scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>(v/1e6).toFixed(1)+'M'},grid:{color:'#f3f4f6'},stacked:!isL}}
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)} ฿`}},
+        datalabels:{
+          display:ctx=>!isL&&ctx.datasetIndex===3,
+          anchor:'end',align:'top',
+          formatter:(v,ctx)=>{const t=ctx.chart.data.datasets.reduce((a,d)=>a+(d.data[ctx.dataIndex]||0),0);return t>0?fmtK(t):'';},
+          clip:false,clamp:true,font:{size:10,weight:'600'},color:'#374151'
+        }
+      },
+      layout:{padding:{top:22}},
+      scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>fmtK(v)},grid:{color:'#f3f4f6'},stacked:!isL}}
     }
   });
 }
 function updSSOtable(){
-  const keys=sfkeys();
+  const keys=[...sfkeys()].reverse();
   let tR=0,tS=0,tO=0,tI=0,html='';
   keys.forEach(k=>{
     const d=M_SSO[k],opd=d.R+d.S+d.OPD_other,g=opd+d.IPD;
@@ -755,7 +975,7 @@ function updNBtable(){
     return true;
   });
   let html='',tR=0,tA=0;
-  rows.forEach(d=>{
+  [...rows].reverse().forEach(d=>{
     tR+=d.rows;tA+=d.amount;
     html+=`<tr><td>${lm(d.month)}</td><td class="r">${d.rows.toLocaleString()}</td><td class="r">${d.amount>0?`<span class="badge bn">${fmt(d.amount)} ฿</span>`:'<span style="color:#9ca3af">0</span>'}</td><td>${d.amount===0?'<span style="font-size:11px;color:#9ca3af">CA2 (col34=0)</span>':''}</td></tr>`;
   });
@@ -771,10 +991,8 @@ function sf(y,el){
   el.classList.add('active');
   updSSOMoPills(); updSSO();
 }
-function sm(m,el){
+function sm(m){
   sMonth=m;
-  document.querySelectorAll('#sso-mo-pills .pill').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active');
   updSSO();
 }
 
@@ -788,9 +1006,9 @@ const nfkeys=()=>Object.keys(M_NHSO).sort().filter(k=>{
 function updNHSOMoPills(){
   const avail=Object.keys(M_NHSO).filter(k=>nYear==='all'||k.startsWith(nYear)).map(k=>k.split('-')[1]);
   const uniq=[...new Set(avail)].sort();
-  const pills=document.getElementById('nhso-mo-pills');
-  pills.innerHTML=`<div class="pill ${nMonth==='all'?'active':''}" onclick="nm('all',this)">ทั้งหมด</div>`+
-    uniq.map(m=>`<div class="pill ${nMonth===m?'active':''}" onclick="nm('${m}',this)">${MTH[m]}</div>`).join('');
+  const sel=document.getElementById('nhso-mo-sel');
+  sel.innerHTML=`<option value="all">ทุกเดือน</option>`+uniq.map(m=>`<option value="${m}" ${nMonth===m?'selected':''}>${MTH[m]}</option>`).join('');
+  sel.value=nMonth;
 }
 function updNHSOkpi(keys){
   const vals=keys.map(k=>M_NHSO[k]);
@@ -811,7 +1029,9 @@ function updNHSOchart(keys){
       {label:'REP อนุมัติ',data:keys.map(k=>M_NHSO[k].rep),backgroundColor:'#10b981',borderRadius:3},
       {label:'STM จ่ายจริง',data:keys.map(k=>M_NHSO[k].stm),backgroundColor:'#6ee7b7',borderRadius:3}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)} ฿`}}},scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>(v/1e6).toFixed(1)+'M'},grid:{color:'#f3f4f6'}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)} ฿`}},
+      datalabels:{display:ctx=>ctx.datasetIndex===1&&(ctx.dataset.data[ctx.dataIndex]||0)>0,anchor:'end',align:'top',clip:false,clamp:true,formatter:v=>fmtK(v),font:{size:10,weight:'600'},color:'#059669'}
+    },layout:{padding:{top:22}},scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>fmtK(v)},grid:{color:'#f3f4f6'}}}}
   });
 }
 function updNHSOpie(keys){
@@ -820,13 +1040,13 @@ function updNHSOpie(keys){
   if(nhsoPie) nhsoPie.destroy();
   nhsoPie=new Chart(document.getElementById('chart-nhso-pie'),{
     type:'doughnut',
-    data:{labels:['WEL ข้าราชการ','UCS บัตรทอง'],datasets:[{data:[tWEL,tUCS],backgroundColor:['#f472b6','#60a5fa'],borderWidth:2}]},
+    data:{labels:['WEL ขรก.ท้องถิ่น','UCS บัตรทอง'],datasets:[{data:[tWEL,tUCS],backgroundColor:['#f472b6','#60a5fa'],borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtM(c.raw)} (${(c.raw/(tWEL+tUCS)*100).toFixed(1)}%)`}}}}
   });
 }
 function updNHSOtable(keys){
   let html='',tR=0,tS=0,tW=0,tU=0,tN=0;
-  keys.forEach(k=>{const d=M_NHSO[k];tR+=d.rep;tS+=d.stm;tW+=d.wel;tU+=d.ucs;tN+=d.rows;
+  [...keys].reverse().forEach(k=>{const d=M_NHSO[k];tR+=d.rep;tS+=d.stm;tW+=d.wel;tU+=d.ucs;tN+=d.rows;
     html+=`<tr><td>${lm(k)}</td><td class="r">${fmt(d.rep)}</td><td class="r">${fmt(d.stm)}</td><td class="r"><span class="badge bw">${fmt(d.wel)}</span></td><td class="r"><span class="badge br">${fmt(d.ucs)}</span></td><td class="r">${d.rows.toLocaleString()}</td></tr>`;
   });
   document.getElementById('tb-nhso').innerHTML=html||'<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
@@ -842,31 +1062,25 @@ function nf(y,el){
   el.classList.add('active');
   updNHSOMoPills(); updNHSO();
 }
-function nm(m,el){
+function nm(m){
   nMonth=m;
-  document.querySelectorAll('#nhso-mo-pills .pill').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active');
   updNHSO();
 }
 function initNHSO(){ updNHSOMoPills(); updNHSO(); }
 
 /* ═══ HMAIN ═══ */
+function hKeyOk(m){
+  if(hYear!=='all'&&!m.startsWith(hYear==='2025'?'2025':'2026')) return false;
+  if(hMonth!=='all'&&m.split('-')[1]!==hMonth) return false;
+  return true;
+}
 function calcHmain(){
-  // รวม SSO + NHSO แยกตาม year filter
   const allH = new Set([...Object.keys(SSO_HM),...Object.keys(NHSO_HM)]);
   const result = {};
   allH.forEach(h=>{
     let sso=0, nhso=0;
-    // SSO
-    const shm = SSO_HM[h]||{};
-    Object.entries(shm).forEach(([m,d])=>{
-      if(hYear==='all'||m.startsWith(hYear)) sso += (d.stm||0);
-    });
-    // NHSO
-    const nhm = NHSO_HM[h]||{};
-    Object.entries(nhm).forEach(([m,v])=>{
-      if(hYear==='all'||m.startsWith(hYear)) nhso += (v||0);
-    });
+    Object.entries(SSO_HM[h]||{}).forEach(([m,d])=>{ if(hKeyOk(m)) sso+=(d.stm||0); });
+    Object.entries(NHSO_HM[h]||{}).forEach(([m,v])=>{ if(hKeyOk(m)) nhso+=(v||0); });
     if(sso+nhso>0) result[h]={sso,nhso,total:sso+nhso};
   });
   return result;
@@ -893,8 +1107,12 @@ function updHmainChart(data){
       {label:'🟢 สปสช',data:top.map(([,d])=>d.nhso),backgroundColor:'#10b981',borderRadius:3,stack:'s'}
     ]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,position:'bottom'},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)} ฿`}}},
-      scales:{x:{ticks:{callback:v=>(v/1e6).toFixed(1)+'M'},grid:{color:'#f3f4f6'},stacked:true},y:{grid:{display:false},stacked:true}}
+      plugins:{legend:{display:true,position:'bottom'},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)} ฿`}},
+        datalabels:{display:ctx=>ctx.datasetIndex===1,anchor:'end',align:'end',
+          formatter:(v,ctx)=>{const t=(ctx.chart.data.datasets[0].data[ctx.dataIndex]||0)+(v||0);return t>0?fmtK(t):'';},
+          font:{size:9,weight:'600'},color:'#374151'}
+      },
+      scales:{x:{ticks:{callback:v=>fmtK(v)},grid:{color:'#f3f4f6'},stacked:true},y:{grid:{display:false},stacked:true}}
     }
   });
 }
@@ -906,12 +1124,17 @@ function renderHtable(){
   if(q) sorted=sorted.filter(([h])=>h.includes(q)||(hn(h)||'').toLowerCase().includes(q));
   const grand=sorted.reduce((a,[,d])=>a+d.total,0);
   let html='',tSSO=0,tNHSO=0;
+  let tCase=0;
   sorted.forEach(([h,d],i)=>{
     tSSO+=d.sso;tNHSO+=d.nhso;
     const pct=(d.total/grand*100).toFixed(1);
     const self=h==='11771';
     const ssoW=d.total>0?(d.sso/d.total*100):0;
     const nhsoW=d.total>0?(d.nhso/d.total*100):0;
+    let cases=0;
+    Object.entries(SSO_VIS[h]||{}).forEach(([m,x])=>{if(hKeyOk(m))cases+=(x.v||0);});
+    Object.entries(NHSO_VIS[h]||{}).forEach(([m,x])=>{if(hKeyOk(m))cases+=(x.v||0);});
+    tCase+=cases;
     html+=`<tr>
       <td>${i+1}</td>
       <td><strong>${h}</strong>${self?' <span class="badge bg">ตัวเอง</span>':''}</td>
@@ -919,6 +1142,7 @@ function renderHtable(){
       <td class="r">${d.sso>0?`<span class="badge br">${fmt(d.sso)}</span>`:'<span style="color:#e5e7eb">—</span>'}</td>
       <td class="r">${d.nhso>0?`<span class="badge bg">${fmt(d.nhso)}</span>`:'<span style="color:#e5e7eb">—</span>'}</td>
       <td class="r"><strong>${fmt(d.total)}</strong></td>
+      <td class="r">${cases?cases.toLocaleString():'—'}</td>
       <td class="r" style="min-width:90px">
         <span style="font-size:11px">${pct}%</span>
         <div class="splitbar">
@@ -929,10 +1153,10 @@ function renderHtable(){
     </tr>`;
   });
   document.getElementById('tb-hmain').innerHTML=html;
-  document.getElementById('tf-hmain').innerHTML=`<tr><td colspan="3">รวม ${sorted.length} แห่ง</td><td class="r">${fmt(tSSO)}</td><td class="r">${fmt(tNHSO)}</td><td class="r">${fmt(tSSO+tNHSO)}</td><td></td></tr>`;
+  document.getElementById('tf-hmain').innerHTML=`<tr><td colspan="3">รวม ${sorted.length} แห่ง</td><td class="r">${fmt(tSSO)}</td><td class="r">${fmt(tNHSO)}</td><td class="r">${fmt(tSSO+tNHSO)}</td><td class="r">${tCase.toLocaleString()}</td><td></td></tr>`;
 }
-function updHmain(){const d=calcHmain();updHmainKPI(d);updHmainChart(d);renderHtable();}
-function hfy(y,el){hYear=y;document.querySelectorAll('#hmain-year-pills .pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');updHmain();}
+function updHmain(){updHmainMoPills();const d=calcHmain();updHmainKPI(d);updHmainChart(d);renderHtable();}
+function hfy(y,el){hYear=y;hMonth='all';document.querySelectorAll('#hmain-year-pills .pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');updHmain();}
 function hfs(m,el){hMode=m;document.querySelectorAll('#page-hmain .pill').forEach(p=>p.classList.remove('active'));document.getElementById('hmain-year-pills').querySelectorAll('.pill').forEach(p=>{if(p.textContent.includes(hYear==='all'?'ทั้งหมด':hYear==='2025'?'68':'69'))p.classList.add('active');});el.classList.add('active');updHmain();}
 
 /* ═══ OVERVIEW ═══ */
@@ -948,16 +1172,16 @@ function ovKeys(){
 
 function ovSSOtotal(k){ const d=M_SSO[k]; return d?d.R+d.S+d.OPD_other+d.IPD:0; }
 function ovNHSOtotal(k){ return M_NHSO[k]?M_NHSO[k].stm:0; }
+function ovCGDtotal(k){ return (typeof M_CGD!=='undefined'&&M_CGD[k])?M_CGD[k].stm:0; }
 
 function updOVkpi(){
   const keys=ovKeys();
-  let tSSO=0,tNHSO=0,cnt=0;
-  keys.forEach(k=>{ tSSO+=ovSSOtotal(k); tNHSO+=ovNHSOtotal(k); cnt++; });
-  const grand=tSSO+tNHSO;
+  let tSSO=0,tNHSO=0,tCGD=0,cnt=0;
+  keys.forEach(k=>{ tSSO+=ovSSOtotal(k); tNHSO+=ovNHSOtotal(k); tCGD+=ovCGDtotal(k); cnt++; });
+  const grand=tSSO+tNHSO+tCGD;
   const avgM=cnt>0?grand/cnt:0;
-  // last non-zero month
-  const lastK=[...keys].reverse().find(k=>ovSSOtotal(k)+ovNHSOtotal(k)>0)||keys[keys.length-1];
-  const lastV=ovSSOtotal(lastK)+ovNHSOtotal(lastK);
+  const lastK=[...keys].reverse().find(k=>ovSSOtotal(k)+ovNHSOtotal(k)+ovCGDtotal(k)>0)||keys[keys.length-1];
+  const lastV=ovSSOtotal(lastK)+ovNHSOtotal(lastK)+ovCGDtotal(lastK);
   const s=(id,v)=>document.getElementById(id).textContent=v;
   s('ov-grand',fmtM(grand));
   s('ov-grand-s',cnt+' เดือน');
@@ -973,16 +1197,18 @@ function updOVkpi(){
 
 function updOVchart(){
   const keys=ovKeys(), labels=keys.map(lm);
-  const ssoD=keys.map(ovSSOtotal), nhsoD=keys.map(ovNHSOtotal);
-  const totD=keys.map((k,i)=>ssoD[i]+nhsoD[i]);
+  const ssoD=keys.map(ovSSOtotal), nhsoD=keys.map(ovNHSOtotal), cgdD=keys.map(ovCGDtotal);
+  const totD=keys.map((k,i)=>ssoD[i]+nhsoD[i]+cgdD[i]);
   const isPct=ovVw==='pct', isLine=ovVw==='line';
 
   const ds = isPct ? [
     {label:'💙 SSO %',data:totD.map((t,i)=>t>0?+(ssoD[i]/t*100).toFixed(1):0),backgroundColor:'#3b82f6',borderColor:'#3b82f6',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3},
-    {label:'🟢 สปสช %',data:totD.map((t,i)=>t>0?+(nhsoD[i]/t*100).toFixed(1):0),backgroundColor:'#10b981',borderColor:'#10b981',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3}
+    {label:'🟢 สปสช %',data:totD.map((t,i)=>t>0?+(nhsoD[i]/t*100).toFixed(1):0),backgroundColor:'#10b981',borderColor:'#10b981',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3},
+    {label:'🏛️ กรมบัญชีกลาง %',data:totD.map((t,i)=>t>0?+(cgdD[i]/t*100).toFixed(1):0),backgroundColor:'#f59e0b',borderColor:'#f59e0b',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3}
   ] : [
     {label:'💙 SSO',data:ssoD,backgroundColor:'#3b82f6',borderColor:'#3b82f6',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3},
-    {label:'🟢 สปสช',data:nhsoD,backgroundColor:'#10b981',borderColor:'#10b981',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3}
+    {label:'🟢 สปสช',data:nhsoD,backgroundColor:'#10b981',borderColor:'#10b981',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3},
+    {label:'🏛️ กรมบัญชีกลาง',data:cgdD,backgroundColor:'#f59e0b',borderColor:'#f59e0b',borderRadius:3,stack:'s',fill:false,tension:.3,pointRadius:3}
   ];
 
   if(ovChart) ovChart.destroy();
@@ -991,13 +1217,25 @@ function updOVchart(){
     data:{labels,datasets:ds},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{
-        label:c=>` ${c.dataset.label}: ${isPct?c.raw+'%':fmt(c.raw)+' ฿'}`,
-        afterBody: isPct?undefined:(items=>{
-          const tot=items.reduce((a,i)=>a+i.raw,0);
-          return tot>0?[`  รวม: ${fmt(tot)} ฿`]:[];
-        })
-      }}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          label:c=>` ${c.dataset.label}: ${isPct?c.raw+'%':fmt(c.raw)+' ฿'}`,
+          afterBody:isPct?undefined:(items=>{const tot=items.reduce((a,i)=>a+i.raw,0);return tot>0?[`  รวม: ${fmt(tot)} ฿`]:[];})
+        }},
+        datalabels:{
+          display:ctx=>{
+            const top=ctx.chart.data.datasets.length-1;
+            if(isPct||isLine||ctx.datasetIndex!==top) return false;
+            const tot=ctx.chart.data.datasets.reduce((a,d)=>a+(d.data[ctx.dataIndex]||0),0);
+            return tot>0;
+          },
+          anchor:'end',align:'top',
+          formatter:(v,ctx)=>fmtK(ctx.chart.data.datasets.reduce((a,d)=>a+(d.data[ctx.dataIndex]||0),0)),
+          clip:false,clamp:true,font:{size:10,weight:'600'},color:'#374151'
+        }
+      },
+      layout:{padding:{top:22}},
       scales:{
         x:{grid:{display:false}},
         y:{
@@ -1013,23 +1251,23 @@ function updOVchart(){
 
 function updOVpie(){
   const keys=ovKeys();
-  let tSSO=0,tNHSO=0;
-  keys.forEach(k=>{tSSO+=ovSSOtotal(k);tNHSO+=ovNHSOtotal(k);});
-  const grand=tSSO+tNHSO;
+  let tSSO=0,tNHSO=0,tCGD=0;
+  keys.forEach(k=>{tSSO+=ovSSOtotal(k);tNHSO+=ovNHSOtotal(k);tCGD+=ovCGDtotal(k);});
+  const grand=tSSO+tNHSO+tCGD;
   if(ovPie) ovPie.destroy();
   ovPie=new Chart(document.getElementById('chart-ov-pie'),{
     type:'doughnut',
     data:{
-      labels:['💙 SSO','🟢 สปสช'],
-      datasets:[{data:[tSSO,tNHSO],backgroundColor:['#3b82f6','#10b981'],borderWidth:2}]
+      labels:['💙 SSO','🟢 สปสช','🏛️ กรมบัญชีกลาง'],
+      datasets:[{data:[tSSO,tNHSO,tCGD],backgroundColor:['#3b82f6','#10b981','#f59e0b'],borderWidth:2}]
     },
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom'},
+      plugins:{legend:{position:'bottom'},datalabels:{display:false},
         tooltip:{callbacks:{label:c=>`${c.label}: ${fmtM(c.raw)} (${grand>0?(c.raw/grand*100).toFixed(1):0}%)`}}}
     }
   });
   document.getElementById('ov-pie-note').innerHTML=
-    `SSO <strong>${fmtM(tSSO)}</strong> (${grand>0?(tSSO/grand*100).toFixed(1):0}%) &nbsp;|&nbsp; สปสช <strong>${fmtM(tNHSO)}</strong> (${grand>0?(tNHSO/grand*100).toFixed(1):0}%)`;
+    `SSO <strong>${(grand>0?tSSO/grand*100:0).toFixed(1)}%</strong> · สปสช <strong>${(grand>0?tNHSO/grand*100:0).toFixed(1)}%</strong> · กรมบัญชีกลาง <strong>${(grand>0?tCGD/grand*100:0).toFixed(1)}%</strong>`;
 }
 
 function updOVyoy(){
@@ -1051,42 +1289,68 @@ function updOVyoy(){
 }
 
 function updOVtable(){
-  const keys=ovKeys();
-  let tSSO=0,tNHSO=0,html='',prev=null;
-  keys.forEach(k=>{
-    const s=ovSSOtotal(k), n=ovNHSOtotal(k), tot=s+n;
-    tSSO+=s; tNHSO+=n;
-    const pSSO=tot>0?(s/tot*100).toFixed(0)+'%':'—';
-    const pNHSO=tot>0?(n/tot*100).toFixed(0)+'%':'—';
+  const asc=ovKeys(); // เรียงเก่า→ใหม่ เพื่อคำนวณ MoM ถูกต้อง
+  const tot=k=>ovSSOtotal(k)+ovNHSOtotal(k)+ovCGDtotal(k);
+  let tSSO=0,tNHSO=0,tCGD=0;
+  asc.forEach(k=>{tSSO+=ovSSOtotal(k);tNHSO+=ovNHSOtotal(k);tCGD+=ovCGDtotal(k);});
+  let html='';
+  [...asc].reverse().forEach(k=>{
+    const s=ovSSOtotal(k), n=ovNHSOtotal(k), c=ovCGDtotal(k), t=s+n+c;
+    const i=asc.indexOf(k), prev=i>0?tot(asc[i-1]):null;
     let chg='';
     if(prev!==null && prev>0){
-      const d=((tot-prev)/prev*100).toFixed(1);
-      const up=tot>=prev;
+      const d=((t-prev)/prev*100).toFixed(1);
+      const up=t>=prev;
       chg=`<span style="color:${up?'#059669':'#dc2626'};font-size:12px">${up?'▲':'▼'} ${Math.abs(d)}%</span>`;
-    } else if(prev===0 && tot>0) chg='<span style="color:#9ca3af;font-size:11px">เดือนแรก</span>';
-    prev=tot;
+    } else if(i===0) chg='<span style="color:#9ca3af;font-size:11px">เดือนแรก</span>';
     html+=`<tr>
       <td>${lm(k)}</td>
       <td class="r">${s>0?`<span class="badge br">${fmt(s)}</span>`:'<span style="color:#e5e7eb">—</span>'}</td>
       <td class="r">${n>0?`<span class="badge bg">${fmt(n)}</span>`:'<span style="color:#e5e7eb">—</span>'}</td>
-      <td class="r"><strong>${fmt(tot)}</strong></td>
-      <td class="r" style="color:#6b7280">${pSSO}</td>
-      <td class="r" style="color:#6b7280">${pNHSO}</td>
+      <td class="r">${c>0?`<span class="badge bs">${fmt(c)}</span>`:'<span style="color:#e5e7eb">—</span>'}</td>
+      <td class="r"><strong>${fmt(t)}</strong></td>
       <td class="r">${chg}</td>
     </tr>`;
   });
   document.getElementById('tb-ov').innerHTML=html;
-  const grand=tSSO+tNHSO;
+  const grand=tSSO+tNHSO+tCGD;
   document.getElementById('tf-ov').innerHTML=`<tr>
-    <td>รวม</td><td class="r">${fmt(tSSO)}</td><td class="r">${fmt(tNHSO)}</td>
+    <td>รวม</td><td class="r">${fmt(tSSO)}</td><td class="r">${fmt(tNHSO)}</td><td class="r">${fmt(tCGD)}</td>
     <td class="r">${fmt(grand)}</td>
-    <td class="r">${grand>0?(tSSO/grand*100).toFixed(0)+'%':'—'}</td>
-    <td class="r">${grand>0?(tNHSO/grand*100).toFixed(0)+'%':'—'}</td>
     <td></td>
   </tr>`;
 }
 
-function updOV(){ updOVkpi(); updOVchart(); updOVpie(); updOVtable(); }
+function updOVfunds(){
+  const keys=ovKeys();
+  // SSO
+  let ssoM=0,ssoV=0,ssoH=0;
+  keys.forEach(k=>{ssoM+=ovSSOtotal(k);const d=V_DATA[k];if(d){ssoV+=(d.sso_visits||0);ssoH+=(d.sso_hn||0);}});
+  // สปสช
+  let nhM=0,nhV=0,nhH=0;
+  keys.forEach(k=>{nhM+=ovNHSOtotal(k);const d=V_DATA[k];if(d){nhV+=(d.nhso_visits||0);nhH+=(d.nhso_hn||0);}});
+  // กรมบัญชีกลาง (CGD)
+  let cgM=0,cgV=0,cgH=0,cgHas=(typeof M_CGD!=='undefined'&&Object.keys(M_CGD).length>0);
+  if(cgHas)keys.forEach(k=>{const d=M_CGD[k];if(d){cgM+=(d.stm||0);cgV+=(d.rows||0);cgH+=(d.hn||0);}});
+  const perHead=(m,h)=>h>0?fmt(Math.round(m/h))+' ฿':'—';
+  const card=(fc,icon,name,money,vis,hnc,soon)=>`
+    <div class="fcard" style="--fc:${fc}">
+      <div class="fh">${icon} ${name}</div>
+      <div class="fbig">${fmtK(money)} <small>฿</small></div>
+      <div class="fmetrics">
+        <div class="fmetric"><div class="fl">Visit</div><div class="fv">${vis?vis.toLocaleString():'—'}</div></div>
+        <div class="fmetric"><div class="fl">HN</div><div class="fv">${hnc?hnc.toLocaleString():'—'}</div></div>
+        <div class="fmetric"><div class="fl">บาท/หัว (HN)</div><div class="fv">${perHead(money,hnc)}</div></div>
+        <div class="fmetric"><div class="fl">บาท/Visit</div><div class="fv">${perHead(money,vis)}</div></div>
+      </div>
+      ${soon?'<div class="fsoon"><div style="font-size:22px">🏛️</div>รอ Upload ข้อมูล</div>':''}
+    </div>`;
+  document.getElementById('ov-funds').innerHTML=
+    card('#2563eb','💙','SSO ประกันสังคม',ssoM,ssoV,ssoH,false)+
+    card('#10b981','🟢','สปสช (บัตรทอง)',nhM,nhV,nhH,false)+
+    card('#f59e0b','🏛️','กรมบัญชีกลาง',cgM,cgV,cgH,!cgHas);
+}
+function updOV(){ updOVkpi(); updOVfunds(); updOVchart(); updOVpie(); updOVtable(); }
 function ovView(v,el){ ovVw=v; document.querySelectorAll('#page-overview .vb').forEach(b=>b.classList.remove('active')); el.classList.add('active'); updOVchart(); }
 function ovYear(y,el){ ovYr=y; document.querySelectorAll('#ov-yr-pills .pill').forEach(p=>p.classList.remove('active')); el.classList.add('active'); updOV(); }
 function initOV(){ updOV(); updOVyoy(); }
@@ -1108,50 +1372,149 @@ function saveHmap(){
 }
 function saveApi(){API_BASE=document.getElementById('api-url').value;localStorage.setItem('api_base',API_BASE);alert('บันทึกแล้ว');}
 
-/* ═══ UPLOAD ═══ */
-function prevUp(t,inp){
-  const f=inp.files[0];if(!f)return;
-  const el=document.getElementById('pv-'+t);el.style.display='block';
-  el.innerHTML=`<b>ไฟล์:</b> ${f.name}<br><b>ขนาด:</b> ${(f.size/1024/1024).toFixed(2)} MB`;
-  if(t==='sso'){document.getElementById('act-sso').style.display='flex';}
+/* ═══ UPLOAD (smart incremental) ═══ */
+let parsedUp=null;  // {fund, fname, months:{m:{...}}, hmain:{h:{m:{...}}}, hnOrder:{m:Set}}
+const numv=x=>{const n=parseFloat(String(x).replace(/,/g,''));return isNaN(n)?0:n;};
+function excelDate(v){ // serial | Date | dd/mm/yyyy | yyyy-mm-dd -> "YYYY-MM"
+  if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0');
+  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*86400000));return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0');}
+  const s=String(v);
+  if(s.includes('/')){const p=s.split(' ')[0].split('/');if(p.length===3)return `${p[2]}-${p[1].padStart(2,'0')}`;}
+  if(/^\d{4}-\d{2}/.test(s))return s.slice(0,7);
+  return null;
 }
-async function doUp(t){
-  if(!USE_API){alert('Demo mode');return;}
-  const inp=document.getElementById('f-'+t);
+
+function parseSSO(wb){
+  const {utils}=XLSX;
+  const rows=utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+  const M={}, HM={}, hnO={};
+  rows.slice(1).forEach(r=>{
+    const mo=excelDate(r[3]); if(!mo)return;
+    const hnv=String(r[6]||'').trim(), an=String(r[8]||'').trim(), hmain=String(r[13]||'').trim();
+    const prot=String(r[21]||'').trim(), stm=numv(r[38]);
+    if(!M[mo])M[mo]={R:0,S:0,OPD_other:0,IPD:0,opd_rows:0,ipd_rows:0};
+    if(an){M[mo].IPD+=stm;M[mo].ipd_rows++;}
+    else{M[mo].opd_rows++; if(prot.endsWith('R'))M[mo].R+=stm; else if(prot.endsWith('S'))M[mo].S+=stm; else M[mo].OPD_other+=stm;}
+    if(hmain){if(!HM[hmain])HM[hmain]={};if(!HM[hmain][mo])HM[hmain][mo]={stm:0,vis:0,hn:new Set()};HM[hmain][mo].stm+=stm;HM[hmain][mo].vis++;if(hnv)HM[hmain][mo].hn.add(hnv);}
+    if(hnv){if(!hnO[mo])hnO[mo]=new Set();hnO[mo].add(hnv);}
+  });
+  return {M,HM,hnO};
+}
+
+function parseNHSO(wb){
+  const {utils}=XLSX;
+  const rep=utils.sheet_to_json(wb.Sheets['REP'],{header:1,defval:''}).slice(3);
+  const stm=utils.sheet_to_json(wb.Sheets['STM'],{header:1,defval:''}).slice(3);
+  const M={}, HM={}, hnO={};
+  // REP: HN col3, date col8, hmain col25, fund col21, approx amount col41
+  rep.forEach(r=>{
+    const mo=excelDate(r[8]); if(!mo)return;
+    const hnv=String(r[3]||'').trim(), hmain=String(r[25]||'').trim(), fund=String(r[21]||'').trim(), amt=numv(r[41]);
+    if(!M[mo])M[mo]={rep:0,stm:0,wel:0,ucs:0,rows:0};
+    M[mo].rows++; M[mo].rep+=amt;
+    if(fund==='WEL')M[mo].wel+=amt; else if(fund==='UCS')M[mo].ucs+=amt;
+    if(hmain){if(!HM[hmain])HM[hmain]={};if(!HM[hmain][mo])HM[hmain][mo]={amount:0,vis:0,hn:new Set()};HM[hmain][mo].amount+=amt;HM[hmain][mo].vis++;if(hnv)HM[hmain][mo].hn.add(hnv);}
+    if(hnv){if(!hnO[mo])hnO[mo]=new Set();hnO[mo].add(hnv);}
+  });
+  // STM: date col7, paid col37 (จ่ายจริง เป๊ะ)
+  stm.forEach(r=>{
+    const mo=excelDate(r[7]); if(!mo)return;
+    if(!M[mo])M[mo]={rep:0,stm:0,wel:0,ucs:0,rows:0};
+    M[mo].stm+=numv(r[37]);
+  });
+  return {M,HM,hnO};
+}
+
+function parseCGD(wb){
+  const {utils}=XLSX;
+  const M={}, hnO={};
+  wb.SheetNames.forEach(sh=>{
+    const rows=utils.sheet_to_json(wb.Sheets[sh],{header:1,defval:''}).slice(1);
+    rows.forEach(r=>{
+      let d=String(r[5]||''); // 2569-01-07... (พ.ศ.)
+      let mo=null;
+      if(/^\d{4}-\d{2}/.test(d)){const be=+d.slice(0,4); mo=(be-543)+'-'+d.slice(5,7);}
+      else{const e=excelDate(r[5]); if(e){const y=+e.slice(0,4); mo=(y>2100?y-543:y)+'-'+e.slice(5,7);}}
+      if(!mo)return;
+      const hnv=String(r[1]||'').trim(), amt=numv(r[13]);
+      if(!M[mo])M[mo]={stm:0,rows:0,hns:new Set()};
+      M[mo].stm+=amt; M[mo].rows++; if(hnv&&hnv!=='nan')M[mo].hns.add(hnv);
+      if(!hnO[mo])hnO[mo]=new Set(); if(hnv)hnO[mo].add(hnv);
+    });
+  });
+  const MM={}; for(const m in M)MM[m]={stm:M[m].stm,rows:M[m].rows,hn:M[m].hns.size};
+  return {M:MM,HM:{},hnO};
+}
+
+async function prevUp(t,inp){
   const f=inp.files[0]; if(!f)return;
-  const btn=document.querySelector('#act-sso .btn-p');
-  if(btn){btn.textContent='กำลัง upload...';btn.disabled=true;}
+  const el=document.getElementById('pv-'+t);
+  el.style.display='block';
+  el.innerHTML=`<div style="padding:10px;color:#6b7280;font-size:12px">⏳ กำลังอ่านไฟล์...</div>`;
   try{
-    const buf=await f.arrayBuffer();
-    const {read,utils}=XLSX;
-    const wb=read(buf,{type:'array'});
-    if(t==='sso'){
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=utils.sheet_to_json(ws,{header:1,defval:''});
-      const byMonth={}, byHM={};
-      rows.slice(1).forEach(r=>{
-        const dRaw=r[7]; if(!dRaw) return;
-        const d=new Date(Math.round((dRaw-25569)*86400000));
-        if(isNaN(d)) return;
-        const mo=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-        const rep=parseFloat(r[34])||0, stm=parseFloat(r[37])||0, hmain=String(r[24]||'').trim();
-        if(!byMonth[mo]) byMonth[mo]={R:0,S:0,opd_rows:0};
-        byMonth[mo].R+=rep; byMonth[mo].S+=stm; byMonth[mo].opd_rows++;
-        if(hmain){if(!byHM[hmain])byHM[hmain]={};if(!byHM[hmain][mo])byHM[hmain][mo]={rep:0,stm:0};byHM[hmain][mo].rep+=rep;byHM[hmain][mo].stm+=stm;}
-      });
-      const mRows=Object.entries(byMonth).map(([month,v])=>({month,rep:v.R,stm:v.S,opd_other:0,ipd:0,opd_rows:v.opd_rows,ipd_rows:0}));
-      const hRows=[];Object.entries(byHM).forEach(([hcode,ms])=>Object.entries(ms).forEach(([month,v])=>hRows.push({hcode,month,rep:v.rep,stm:v.stm})));
-      await sbUpsert('sso_monthly',mRows);
-      await sbUpsert('sso_hmain',hRows);
-      await sbUpsert('upload_log',[{filename:f.name,fund:'SSO',new_rows:rows.length-1,status:'ok'}]);
-      alert('Upload SSO สำเร็จ '+mRows.length+' เดือน');
-    }
-    await loadFromSupabase();
-    updSSOMoPills(); updSSO(); initNHSO(); initOV(); updHmain();
-  }catch(e){alert('Error: '+e.message);}
-  if(btn){btn.textContent='ยืนยัน';btn.disabled=false;}
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    const p=(t==='sso')?parseSSO(wb):(t==='nhso')?parseNHSO(wb):parseCGD(wb);
+    const existing=(t==='sso')?M_SSO:(t==='nhso')?M_NHSO:M_CGD;
+    const allMonths=Object.keys(p.M).filter(m=>{const y=+m.slice(0,4);return y>=2025;}).sort();
+    const newM=allMonths.filter(m=>!existing[m]);
+    const oldM=allMonths.filter(m=>existing[m]);
+    parsedUp={fund:t,fname:f.name,...p,newM};
+    const rowsOf=v=>(t==='sso')?(v.opd_rows+v.ipd_rows):v.rows;
+    const rowsCount=Object.values(p.M).reduce((a,v)=>a+rowsOf(v),0);
+    const li=m=>{const v=p.M[m];const rc=rowsOf(v);const hnc=(p.hnO[m]?p.hnO[m].size:(v.hn||0));return `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span>${lm(m)}</span><span style="color:#6b7280">${rc.toLocaleString()} แถว · ${hnc} HN</span></div>`;};
+    el.innerHTML=`
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px">
+        <div style="font-size:12px;margin-bottom:8px"><b>📄 ${f.name}</b><br><span style="color:#6b7280">พบ ${allMonths.length} เดือน · ${rowsCount.toLocaleString()} แถวรวม</span></div>
+        ${newM.length?`<div style="margin-bottom:8px"><span class="badge bg">ใหม่ ${newM.length} เดือน (จะเพิ่ม)</span><div style="margin-top:6px;padding:8px;background:#f0fdf4;border-radius:6px">${newM.map(li).join('')}</div></div>`:''}
+        ${oldM.length?`<div style="margin-bottom:8px"><span class="badge bo">มีแล้ว ${oldM.length} เดือน (ข้าม)</span><div style="margin-top:4px;font-size:11px;color:#9ca3af">${oldM.map(lm).join(', ')}</div></div>`:''}
+        ${newM.length
+          ? `<div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="doUp()">✅ ยืนยัน เพิ่ม ${newM.length} เดือน</button><button class="btn btn-o" onclick="cancelUp('${t}')">ยกเลิก</button></div>`
+          : `<div style="color:#059669;font-size:12px;margin-top:8px">✓ ข้อมูลครบแล้ว ไม่มีเดือนใหม่</div>`}
+      </div>`;
+  }catch(e){el.innerHTML=`<div style="color:#b91c1c;font-size:12px;padding:10px">❌ อ่านไฟล์ไม่ได้: ${e.message}</div>`;}
 }
-function cancelUp(t){document.getElementById('pv-'+t).style.display='none';document.getElementById('f-'+t).value='';if(t==='sso')document.getElementById('act-sso').style.display='none';}
+
+async function doUp(){
+  if(!parsedUp){return;}
+  const {fund,fname,M,HM,hnO,newM}=parsedUp;
+  if(!newM.length)return;
+  const btn=document.querySelector('#pv-'+fund+' .btn-p');
+  if(btn){btn.textContent='⏳ กำลังเพิ่ม...';btn.disabled=true;}
+  try{
+    // cumulative HN สำหรับ hn_new: รวม HN ทุกเดือน "ก่อน" เดือนใหม่
+    const allMonthsSorted=Object.keys(hnO).sort();
+    if(fund==='sso'){
+      const mRows=newM.map(m=>({month:m,rep:M[m].R,stm:M[m].S,opd_other:M[m].OPD_other,ipd:M[m].IPD,opd_rows:M[m].opd_rows,ipd_rows:M[m].ipd_rows}));
+      await sbUpsert('sso_monthly',mRows);
+      const hRows=[];for(const h in HM)for(const m of newM)if(HM[h][m])hRows.push({hcode:h,month:m,stm:HM[h][m].stm,visits:HM[h][m].vis,hn_unique:HM[h][m].hn.size});
+      await sbUpsert('sso_hmain',hRows);
+      const vRows=newM.map(m=>({month:m,fund:'SSO',visits:(M[m].opd_rows+M[m].ipd_rows),hn_unique:hnO[m]?hnO[m].size:0}));
+      await sbUpsert('visits_monthly',vRows);
+      const nRows=newM.map(m=>{const seen=new Set();allMonthsSorted.filter(x=>x<m).forEach(x=>hnO[x].forEach(h=>seen.add(h)));let nw=0;(hnO[m]||new Set()).forEach(h=>{if(!seen.has(h))nw++;});return {month:m,fund:'SSO',hn_new:nw};});
+      await sbUpsert('hn_new_monthly',nRows);
+    }else if(fund==='nhso'){
+      const mRows=newM.map(m=>({month:m,...M[m]}));
+      await sbUpsert('nhso_monthly',mRows);
+      const hRows=[];for(const h in HM)for(const m of newM)if(HM[h][m])hRows.push({hcode:h,month:m,amount:HM[h][m].amount,visits:HM[h][m].vis,hn_unique:HM[h][m].hn.size});
+      await sbUpsert('nhso_hmain',hRows);
+      const vRows=newM.map(m=>({month:m,fund:'NHSO',visits:M[m].rows,hn_unique:hnO[m]?hnO[m].size:0}));
+      await sbUpsert('visits_monthly',vRows);
+      const nRows=newM.map(m=>{const seen=new Set();allMonthsSorted.filter(x=>x<m).forEach(x=>hnO[x].forEach(h=>seen.add(h)));let nw=0;(hnO[m]||new Set()).forEach(h=>{if(!seen.has(h))nw++;});return {month:m,fund:'NHSO',hn_new:nw};});
+      await sbUpsert('hn_new_monthly',nRows);
+    }else{ // cgd
+      const mRows=newM.map(m=>({month:m,stm:M[m].stm,rows:M[m].rows,hn:M[m].hn}));
+      await sbUpsert('cgd_monthly',mRows);
+    }
+    await sbUpsert('upload_log',[{filename:fname,fund:fund.toUpperCase(),new_rows:newM.length,status:'ok'}]);
+    // reload ทั้งหมด
+    SSO_VIS={};NHSO_VIS={};
+    await loadFromSupabase(); await loadVisitsFromSB();
+    updSSOMoPills();updSSO();initNHSO();initOV();updHmain();updCmpMoSel();renderCmpList();updVis();
+    document.getElementById('pv-'+fund).innerHTML=`<div style="color:#059669;font-size:13px;padding:12px;background:#f0fdf4;border-radius:8px">✅ เพิ่ม ${newM.length} เดือนสำเร็จ! (${newM.map(lm).join(', ')})</div>`;
+    parsedUp=null;
+  }catch(e){alert('Error: '+e.message);if(btn){btn.textContent='✅ ยืนยัน';btn.disabled=false;}}
+}
+function cancelUp(t){document.getElementById('pv-'+t).style.display='none';document.getElementById('f-'+t).value='';parsedUp=null;}
 
 /* ═══ EXPORT ═══ */
 function doExport(){
@@ -1177,32 +1540,319 @@ function doExport(){
 }
 function dl(name,csv){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();}
 
+/* ═══ COMPARE ═══ */
+let cmpYear_='all', cmpMonth_='all', cmpFund_='all', cmpSelected=[], cmpChart=null;
+const CMP_COLORS=['#3b82f6','#ef4444','#f59e0b','#10b981','#8b5cf6'];
+
+function cmpKeyOk(m){
+  if(cmpYear_!=='all'&&!m.startsWith(cmpYear_==='2025'?'2025':'2026')) return false;
+  if(cmpMonth_!=='all'&&m.split('-')[1]!==cmpMonth_) return false;
+  return true;
+}
+
+function cmpYear(y,el){
+  cmpYear_=y; cmpMonth_='all';
+  document.querySelectorAll('#cmp-yr-pills .pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  updCmpMoSel(); renderCmpList(); updCmp();
+}
+function cmpMonth(m){cmpMonth_=m; renderCmpList(); updCmp();}
+function cmpFund(f,el){cmpFund_=f;document.querySelectorAll('#cmp-fund-pills .pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');renderCmpList();updCmp();}
+
+function updCmpMoSel(){
+  const allKeys=[...new Set([...Object.values(SSO_HM).flatMap(m=>Object.keys(m)),...Object.values(NHSO_HM).flatMap(m=>Object.keys(m))])]
+    .filter(k=>cmpYear_==='all'||k.startsWith(cmpYear_==='2025'?'2025':'2026')).sort();
+  const uniq=[...new Set(allKeys.map(k=>k.split('-')[1]))];
+  const sel=document.getElementById('cmp-mo-sel');
+  sel.innerHTML=`<option value="all">ทุกเดือน</option>`+uniq.map(m=>`<option value="${m}">${MTH[m]||m}</option>`).join('');
+  sel.value='all';
+}
+
+function cmpVal(h){
+  let sso=0,nhso=0;
+  Object.entries(SSO_HM[h]||{}).forEach(([m,d])=>{if(cmpKeyOk(m))sso+=(d.stm||0);});
+  Object.entries(NHSO_HM[h]||{}).forEach(([m,v])=>{if(cmpKeyOk(m))nhso+=(v||0);});
+  return {sso,nhso,total:sso+nhso};
+}
+
+function cmpVisit(h){
+  let sv=0,nv=0,sh=0,nh=0;
+  Object.entries(SSO_VIS[h]||{}).forEach(([m,d])=>{if(cmpKeyOk(m)){sv+=(d.v||0);sh+=(d.u||0);}});
+  Object.entries(NHSO_VIS[h]||{}).forEach(([m,d])=>{if(cmpKeyOk(m)){nv+=(d.v||0);nh+=(d.u||0);}});
+  return {sv,nv,sh,nh};
+}
+
+function toggleCmp(h){
+  if(cmpSelected.includes(h)){cmpSelected=cmpSelected.filter(x=>x!==h);}
+  else{if(cmpSelected.length>=5){alert('เลือกได้สูงสุด 5 แห่ง');return;}cmpSelected.push(h);}
+  renderCmpTags(); renderCmpList(); updCmp();
+}
+
+function renderCmpTags(){
+  document.getElementById('cmp-tags').innerHTML=cmpSelected.length
+    ?cmpSelected.map((h,i)=>`<span style="background:${CMP_COLORS[i]}22;border:1.5px solid ${CMP_COLORS[i]};border-radius:16px;padding:3px 10px;font-size:12px;cursor:pointer;color:${CMP_COLORS[i]};font-weight:600" onclick="toggleCmp('${h}')">${hn(h)||h} ×</span>`).join('')
+    :'<span style="color:#9ca3af;font-size:12px">กดที่แถวด้านล่างเพื่อเลือก รพ.</span>';
+}
+
+function renderCmpList(){
+  const q=(document.getElementById('cmp-search')?.value||'').toLowerCase();
+  const allH=new Set([...Object.keys(SSO_HM),...Object.keys(NHSO_HM)]);
+  let rows=[...allH].map(h=>({h,v:cmpVal(h)})).sort((a,b)=>b.v.total-a.v.total);
+  if(q) rows=rows.filter(({h})=>h.includes(q)||(hn(h)||'').toLowerCase().includes(q));
+  document.getElementById('tb-cmp').innerHTML=rows.map(({h,v})=>{
+    const sel=cmpSelected.includes(h);
+    const ci=cmpSelected.indexOf(h);
+    const vis=cmpVisit(h); const cases=vis.sv+vis.nv;
+    return `<tr style="cursor:pointer;${sel?`background:${CMP_COLORS[ci]}11`:''}" onclick="toggleCmp('${h}')">
+      <td style="width:36px">${sel?`<span style="background:${CMP_COLORS[ci]};color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${ci+1}</span>`:'<span style="color:#d1d5db;font-size:16px">○</span>'}</td>
+      <td><strong>${h}</strong></td><td>${hn(h)||'—'}</td>
+      <td class="r">${fmt(v.sso)}</td><td class="r">${fmt(v.nhso)}</td>
+      <td class="r"><strong>${fmt(v.total)}</strong></td>
+      <td class="r">${cases?cases.toLocaleString():'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updCmpSummary(){
+  if(!cmpSelected.length){document.getElementById('cmp-summary-card').style.display='none';return;}
+  document.getElementById('cmp-summary-card').style.display='block';
+  const grand=cmpSelected.reduce((a,h)=>a+cmpVal(h).total,0);
+  document.getElementById('tb-cmp-sum-body').innerHTML=cmpSelected.map((h,i)=>{
+    const v=cmpVal(h);
+    const vis=cmpVisit(h);
+    return `<tr style="border-left:4px solid ${CMP_COLORS[i]}">
+      <td><span style="color:${CMP_COLORS[i]};font-weight:700">${hn(h)||h}</span><br><span style="font-size:11px;color:#9ca3af">${h}</span></td>
+      <td class="r">${fmt(v.sso)}</td>
+      <td class="r">${fmt(v.nhso)}</td>
+      <td class="r"><strong>${fmt(v.total)}</strong></td>
+      <td class="r">${grand>0?(v.total/grand*100).toFixed(1)+'%':'—'}</td>
+      <td class="r">${vis.sv?vis.sv.toLocaleString():'—'}</td>
+      <td class="r">${vis.nv?vis.nv.toLocaleString():'—'}</td>
+      <td class="r"><strong>${(vis.sv+vis.nv)?(vis.sv+vis.nv).toLocaleString():'—'}</strong></td>
+    </tr>`;
+  }).join('');
+}
+
+function updCmp(){
+  updCmpSummary();
+  if(!cmpSelected.length){if(cmpChart){cmpChart.destroy();cmpChart=null;}document.getElementById('cmp-leg').innerHTML='';return;}
+  const allMonths=[...new Set([...Object.values(SSO_HM).flatMap(m=>Object.keys(m)),...Object.values(NHSO_HM).flatMap(m=>Object.keys(m))])]
+    .filter(m=>cmpKeyOk(m)).sort();
+  const datasets=cmpSelected.map((h,i)=>({
+    label:hn(h)||h,
+    data:allMonths.map(m=>{
+      let v=0;
+      if(cmpFund_!=='nhso') v+=(SSO_HM[h]?.[m]?.stm||0);
+      if(cmpFund_!=='sso') v+=(NHSO_HM[h]?.[m]||0);
+      return v;
+    }),
+    borderColor:CMP_COLORS[i],backgroundColor:CMP_COLORS[i]+'33',tension:.3,fill:false,pointRadius:4,borderWidth:2
+  }));
+  if(cmpChart) cmpChart.destroy();
+  cmpChart=new Chart(document.getElementById('chart-cmp'),{
+    type:'line',
+    data:{labels:allMonths.map(lm),datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top'},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmtM(c.raw)}`}}},
+      scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>fmtM(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+  document.getElementById('cmp-leg').innerHTML=cmpSelected.map((h,i)=>`<div class="li"><div class="ld" style="background:${CMP_COLORS[i]}"></div>${hn(h)||h}</div>`).join('');
+}
+
+/* ═══ CGD (กรมบัญชีกลาง) ═══ */
+let cgYear='all', cgMonth='all', cgdChart=null;
+const cgKeys=()=>Object.keys(M_CGD).sort().filter(k=>{
+  if(cgYear!=='all'&&!k.startsWith(cgYear))return false;
+  if(cgMonth!=='all'&&k.split('-')[1]!==cgMonth)return false;
+  return true;
+});
+function updCGDMoSel(){
+  const uniq=[...new Set(Object.keys(M_CGD).filter(k=>cgYear==='all'||k.startsWith(cgYear)).map(k=>k.split('-')[1]))].sort();
+  const sel=document.getElementById('cgd-mo-sel');
+  sel.innerHTML=`<option value="all">ทุกเดือน</option>`+uniq.map(m=>`<option value="${m}">${MTH[m]}</option>`).join('');
+  sel.value=cgMonth;
+}
+function cgf(y,el){cgYear=y;cgMonth='all';document.querySelectorAll('#cgd-yr-pills .pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');updCGDMoSel();updCGD();}
+function cgm(m){cgMonth=m;updCGD();}
+function updCGD(){
+  const keys=cgKeys();
+  const tS=keys.reduce((a,k)=>a+(M_CGD[k].stm||0),0);
+  const tR=keys.reduce((a,k)=>a+(M_CGD[k].rows||0),0);
+  const tH=keys.reduce((a,k)=>a+(M_CGD[k].hn||0),0);
+  const s=(id,v)=>document.getElementById(id).textContent=v;
+  s('ck-stm',fmtM(tS)); s('ck-stm-s',keys.length+' เดือน');
+  s('ck-rows',tR.toLocaleString()); s('ck-rows-s','เคสส่งเบิก');
+  s('ck-hn',tH.toLocaleString()); s('ck-hn-s','คนไข้ (นับซ้ำข้ามเดือน)');
+  s('ck-avg',tR>0?fmt(Math.round(tS/tR))+' ฿':'—'); s('ck-avg-s','ต่อเคส');
+  if(cgdChart)cgdChart.destroy();
+  cgdChart=new Chart(document.getElementById('chart-cgd'),{
+    type:'bar',
+    data:{labels:keys.map(lm),datasets:[{label:'STM จ่ายจริง',data:keys.map(k=>M_CGD[k].stm),backgroundColor:'#f59e0b',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${fmt(c.raw)} ฿`}},
+      datalabels:{display:ctx=>(ctx.dataset.data[ctx.dataIndex]||0)>0,anchor:'end',align:'top',clip:false,clamp:true,formatter:v=>fmtK(v),font:{size:10,weight:'600'},color:'#b45309'}},
+      layout:{padding:{top:22}},scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>fmtK(v)},grid:{color:'#f3f4f6'}}}}
+  });
+  // table (ล่าสุดก่อน)
+  let html='',prev=null;
+  [...keys].forEach(k=>{}); // ensure order
+  const asc=[...keys];
+  let tt=0;
+  [...keys].reverse().forEach(k=>{
+    const d=M_CGD[k];
+    const i=asc.indexOf(k); const pv=i>0?M_CGD[asc[i-1]].stm:null;
+    let chg='';
+    if(pv!==null&&pv>0){const dd=((d.stm-pv)/pv*100).toFixed(0);const up=d.stm>=pv;chg=`<span style="color:${up?'#059669':'#dc2626'};font-size:12px">${up?'▲':'▼'} ${Math.abs(dd)}%</span>`;}
+    else if(i===0)chg='<span style="color:#9ca3af;font-size:11px">เดือนแรก</span>';
+    html+=`<tr><td>${lm(k)}</td><td class="r"><strong>${fmt(d.stm)}</strong></td><td class="r">${d.rows}</td><td class="r">${d.hn}</td><td class="r">${d.rows>0?fmt(Math.round(d.stm/d.rows)):'—'}</td><td class="r">${chg}</td></tr>`;
+  });
+  document.getElementById('tb-cgd').innerHTML=html||'<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">ไม่มีข้อมูล</td></tr>';
+  document.getElementById('tf-cgd').innerHTML=`<tr><td>รวม</td><td class="r">${fmt(tS)}</td><td class="r">${tR}</td><td class="r">${tH}</td><td class="r"></td><td></td></tr>`;
+}
+function initCGD(){updCGDMoSel();updCGD();}
+
+/* ═══ VISITS ═══ */
+let visYear_='all', visView_='visit', visFund_='all', visChart=null, hnNewChart=null;
+function visFundSel(f,el){visFund_=f;document.querySelectorAll('#vis-fund-pills .pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');updVis();}
+let V_DATA = {}; // keyed "YYYY-MM" → {sso_visits, nhso_visits, cgd_visits, sso_hn, nhso_hn, cgd_hn, sso_new_hn, nhso_new_hn}
+const vinit=()=>({sso_visits:0,nhso_visits:0,cgd_visits:0,sso_hn:0,nhso_hn:0,cgd_hn:0,sso_new_hn:0,nhso_new_hn:0});
+
+function visYear(y,el){visYear_=y;document.querySelectorAll('#vis-yr-pills .pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');updVis();}
+function visView(v,el){visView_=v;document.querySelectorAll('#page-visits .vb').forEach(b=>b.classList.remove('active'));el.classList.add('active');updVis();}
+
+function buildVDataFromSSO(){
+  Object.entries(M_SSO).forEach(([m,d])=>{
+    if(!V_DATA[m]) V_DATA[m]=vinit();
+    V_DATA[m].sso_visits=(d.opd_rows||0)+(d.ipd_rows||0);
+  });
+  Object.entries(M_NHSO).forEach(([m,d])=>{
+    if(!V_DATA[m]) V_DATA[m]=vinit();
+    V_DATA[m].nhso_visits=(d.rows||0);
+  });
+  Object.entries(M_CGD).forEach(([m,d])=>{
+    if(!V_DATA[m]) V_DATA[m]=vinit();
+    V_DATA[m].cgd_visits=(d.rows||0);
+    V_DATA[m].cgd_hn=(d.hn||0);
+  });
+}
+
+async function loadVisitsFromSB(){
+  const rows=await sbGet('visits_monthly','select=*&order=month');
+  rows.forEach(r=>{
+    if(!V_DATA[r.month]) V_DATA[r.month]=vinit();
+    if(r.fund==='SSO'){V_DATA[r.month].sso_visits=r.visits;V_DATA[r.month].sso_hn=r.hn_unique;}
+    if(r.fund==='NHSO'){V_DATA[r.month].nhso_visits=r.visits;V_DATA[r.month].nhso_hn=r.hn_unique;}
+  });
+  const rows2=await sbGet('hn_new_monthly','select=*&order=month');
+  rows2.forEach(r=>{
+    if(!V_DATA[r.month]) V_DATA[r.month]=vinit();
+    if(r.fund==='SSO') V_DATA[r.month].sso_new_hn=r.hn_new;
+    if(r.fund==='NHSO') V_DATA[r.month].nhso_new_hn=r.hn_new;
+  });
+}
+
+function updVis(){
+  const validM=new Set([...Object.keys(M_SSO),...Object.keys(M_NHSO),...Object.keys(M_CGD)]);
+  const keys=Object.keys(V_DATA).filter(m=>validM.has(m)&&(visYear_==='all'||m.startsWith(visYear_==='2025'?'2025':'2026'))).sort();
+  // KPI
+  const sum=f=>keys.reduce((a,m)=>a+(V_DATA[m][f]||0),0);
+  const tSV=sum('sso_visits'),tNV=sum('nhso_visits'),tCV=sum('cgd_visits');
+  const tSH=sum('sso_hn'),tNH=sum('nhso_hn'),tCH=sum('cgd_hn');
+  const s=(id,v)=>document.getElementById(id).textContent=v;
+  s('vk-sso-v',tSV.toLocaleString()); s('vk-sso-vs','HN '+tSH.toLocaleString());
+  s('vk-nhso-v',tNV.toLocaleString()); s('vk-nhso-vs','HN '+tNH.toLocaleString());
+  s('vk-sso-hn',tCV.toLocaleString()); s('vk-sso-hns','🏛️ กรมบัญชีกลาง · HN '+tCH.toLocaleString());
+  s('vk-nhso-hn',(tSV+tNV+tCV).toLocaleString()); s('vk-nhso-hns','Visit รวม 3 สิทธิ์');
+
+  // ── Chart 1: Visit / HN / HN ใหม่ (3 เส้น) ตามสิทธิ์ที่เลือก ──
+  // เลือกฟิลด์ตาม fund (all=รวม)
+  const val=(m,metric)=>{ // metric: 'visits'|'hn'|'new_hn'
+    const d=V_DATA[m]; if(!d)return 0;
+    if(visFund_==='all'){
+      if(metric==='new_hn')return (d.sso_new_hn||0)+(d.nhso_new_hn||0);
+      return (d['sso_'+metric]||0)+(d['nhso_'+metric]||0)+(d['cgd_'+metric]||0);
+    }
+    return d[visFund_+'_'+metric]||0;
+  };
+  const lines=[
+    {label:'Visit',metric:'visits',c:'#3b82f6'},
+    {label:'HN',metric:'hn',c:'#8b5cf6'},
+    {label:'HN ใหม่',metric:'new_hn',c:'#f59e0b'}
+  ].filter(L=>!(visFund_==='cgd'&&L.metric==='new_hn')); // CGD ไม่มี HN ใหม่
+  if(visChart) visChart.destroy();
+  visChart=new Chart(document.getElementById('chart-vis'),{
+    type:'line',
+    data:{labels:keys.map(lm),datasets:lines.map(L=>({
+      label:L.label,data:keys.map(m=>val(m,L.metric)),
+      borderColor:L.c,backgroundColor:L.c,tension:.3,fill:false,pointRadius:4,borderWidth:2
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top'},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw.toLocaleString()}`,
+          afterLabel:c=>{const i=c.dataIndex;if(i===0)return'';const p=c.dataset.data[i-1];if(!p)return'';const d=c.raw-p;return `เทียบเดือนก่อน: ${d>=0?'+':''}${d.toLocaleString()} (${(d/p*100).toFixed(0)}%)`;}}},
+        datalabels:{display:ctx=>(ctx.dataset.data[ctx.dataIndex]||0)>0,anchor:'end',align:'top',clip:false,clamp:true,
+          formatter:v=>v>0?v.toLocaleString():'',font:{size:10,weight:'600'},color:ctx=>ctx.dataset.borderColor}},
+      layout:{padding:{top:24}},
+      scales:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#f3f4f6'}}}}
+  });
+
+  if(hnNewChart){hnNewChart.destroy();hnNewChart=null;}
+
+  // Table
+  document.getElementById('tb-vis').innerHTML=[...keys].reverse().map(m=>{
+    const d=V_DATA[m];
+    return `<tr><td>${lm(m)}</td>
+      <td class="r">${(d.sso_visits||0).toLocaleString()}</td>
+      <td class="r">${d.sso_hn?d.sso_hn.toLocaleString():'—'}</td>
+      <td class="r">${(d.nhso_visits||0).toLocaleString()}</td>
+      <td class="r">${d.nhso_hn?d.nhso_hn.toLocaleString():'—'}</td>
+      <td class="r">${d.cgd_visits?d.cgd_visits.toLocaleString():'—'}</td>
+      <td class="r">${d.cgd_hn?d.cgd_hn.toLocaleString():'—'}</td>
+      <td class="r">${d.sso_new_hn?'<span class="badge bi">+'+d.sso_new_hn+'</span>':'—'}</td>
+      <td class="r">${d.nhso_new_hn?'<span class="badge bg">+'+d.nhso_new_hn+'</span>':'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
 /* ═══ INIT ═══ */
 async function loadFromSupabase(){
-  const [ssoM, nhsoM, ssoH, nhsoH] = await Promise.all([
+  const [ssoM, nhsoM, ssoH, nhsoH, cgdM] = await Promise.all([
     sbGet('sso_monthly','select=*&order=month'),
     sbGet('nhso_monthly','select=*&order=month'),
     sbGet('sso_hmain','select=*'),
-    sbGet('nhso_hmain','select=*')
+    sbGet('nhso_hmain','select=*'),
+    sbGet('cgd_monthly','select=*&order=month')
   ]);
 
   ssoM.forEach(r=>{ M_SSO[r.month]={R:r.rep,S:r.stm,OPD_other:r.opd_other,IPD:r.ipd,opd_rows:r.opd_rows,ipd_rows:r.ipd_rows}; });
   nhsoM.forEach(r=>{ M_NHSO[r.month]={rep:r.rep,stm:r.stm,wel:r.wel,ucs:r.ucs,rows:r.rows}; });
+  if(Array.isArray(cgdM)) cgdM.forEach(r=>{ M_CGD[r.month]={stm:r.stm,rows:r.rows,hn:r.hn}; });
 
   ssoH.forEach(r=>{
     if(!SSO_HM[r.hcode]) SSO_HM[r.hcode]={};
     SSO_HM[r.hcode][r.month]={rep:r.rep,stm:r.stm};
+    if(!SSO_VIS[r.hcode]) SSO_VIS[r.hcode]={};
+    SSO_VIS[r.hcode][r.month]={v:r.visits||0,u:r.hn_unique||0};
   });
   nhsoH.forEach(r=>{
     if(!NHSO_HM[r.hcode]) NHSO_HM[r.hcode]={};
     NHSO_HM[r.hcode][r.month]=r.amount;
+    if(!NHSO_VIS[r.hcode]) NHSO_VIS[r.hcode]={};
+    NHSO_VIS[r.hcode][r.month]={v:r.visits||0,u:r.hn_unique||0};
   });
 }
 
 async function init(){
-  if(USE_API) await loadFromSupabase();
+  if(USE_API){
+    await loadFromSupabase();
+    await loadVisitsFromSB();
+  }
+  buildVDataFromSSO();
   updSSOMoPills(); updSSO();
-  initNHSO(); initOV(); updHmain(); renderHmapForm();
+  initNHSO(); initCGD(); initOV(); updHmain();
+  updCmpMoSel(); renderCmpList(); renderCmpTags();
+  updVis();
+  renderHmapForm();
   document.getElementById('api-url').value=API_BASE;
 }
 init();
