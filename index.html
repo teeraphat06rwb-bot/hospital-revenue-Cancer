@@ -146,8 +146,8 @@ input[type=file]{display:none}
   <div class="nav-s">ภาพรวม</div>
   <div class="nav-i" onclick="go('overview')">📊 ภาพรวมทั้งหมด</div>
   <div class="nav-s">รายสิทธิ์</div>
-  <div class="nav-i" onclick="go('sso')">💙 SSO ประกันสังคม</div>
-  <div class="nav-i" onclick="go('nhso')">🟢 สปสช (ปี 69)</div>
+  <div class="nav-i" onclick="go('sso')">💙 ประกันสังคม</div>
+  <div class="nav-i" onclick="go('nhso')">🟢 สปสช</div>
   <div class="nav-i" onclick="go('cgd')">🏛️ กรมบัญชีกลาง</div>
   <div class="nav-s">วิเคราะห์</div>
   <div class="nav-i" onclick="go('hmain')">🏥 รพ.ต้นทาง (HMAIN)</div>
@@ -243,6 +243,7 @@ input[type=file]{display:none}
         <th class="r">🏛️ กรมบัญชีกลาง</th>
         <th class="r">รวม</th>
         <th class="r">เทียบเดือนก่อน</th>
+        <th class="r">เทียบปีก่อน (YoY)</th>
       </tr></thead>
       <tbody id="tb-ov"></tbody>
       <tfoot id="tf-ov"></tfoot>
@@ -302,7 +303,7 @@ input[type=file]{display:none}
     </div>
     <div class="card">
       <table>
-        <thead><tr><th>เดือน</th><th class="r">OPD-R</th><th class="r">OPD-S</th><th class="r">OPD-อื่นๆ</th><th class="r">รวม OPD</th><th class="r">IPD</th><th class="r">รวม</th></tr></thead>
+        <thead><tr><th>เดือน</th><th class="r">OPD-R</th><th class="r">OPD-S</th><th class="r">OPD-อื่นๆ</th><th class="r">รวม OPD</th><th class="r">IPD</th><th class="r">รวม</th><th class="r">รวมปีก่อน</th><th class="r">%โต YoY</th></tr></thead>
         <tbody id="tb-sso"></tbody><tfoot id="tf-sso"></tfoot>
       </table>
       <p class="note">* STM = SCACSTM-SSOPay | IPD จ่ายตาม DRG</p>
@@ -375,7 +376,7 @@ input[type=file]{display:none}
     <div class="card">
       <div class="ct">ตารางรายเดือน</div>
       <table>
-        <thead><tr><th>เดือน</th><th class="r">REP</th><th class="r">STM</th><th class="r">WEL</th><th class="r">UCS</th><th class="r">รายการ</th></tr></thead>
+        <thead><tr><th>เดือน</th><th class="r">REP</th><th class="r">STM</th><th class="r">WEL</th><th class="r">UCS</th><th class="r">รายการ</th><th class="r">STM ปีก่อน</th><th class="r">%โต YoY</th></tr></thead>
         <tbody id="tb-nhso"></tbody>
         <tfoot id="tf-nhso"></tfoot>
       </table>
@@ -907,7 +908,7 @@ function updHmainMoPills(){
 function hfm(m){hMonth=m;updHmain();}
 
 /* ═══ NAV ═══ */
-const TITLES={overview:'ภาพรวมทั้งหมด',sso:'SSO ประกันสังคม',nhso:'สปสช',cgd:'กรมบัญชีกลาง',hmain:'รพ.ต้นทาง (HMAIN)',compare:'เปรียบเทียบ รพ.',visits:'Visit & HN',upload:'Upload ไฟล์',settings:'Settings'};
+const TITLES={overview:'ภาพรวมทั้งหมด',sso:'ประกันสังคม',nhso:'สปสช',cgd:'กรมบัญชีกลาง',hmain:'รพ.ต้นทาง (HMAIN)',compare:'เปรียบเทียบ รพ.',visits:'Visit & HN',upload:'Upload ไฟล์',settings:'Settings'};
 function go(p){
   document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
@@ -958,15 +959,17 @@ function updSSOchart(){
 }
 function updSSOtable(){
   const keys=[...sfkeys()].reverse();
-  let tR=0,tS=0,tO=0,tI=0,html='';
+  let tR=0,tS=0,tO=0,tI=0,tPrev=0,html='';
+  const ssoTot=x=>{const d=M_SSO[x];return d?d.R+d.S+d.OPD_other+d.IPD:0;};
   keys.forEach(k=>{
     const d=M_SSO[k],opd=d.R+d.S+d.OPD_other,g=opd+d.IPD;
     tR+=d.R;tS+=d.S;tO+=d.OPD_other;tI+=d.IPD;
-    html+=`<tr><td>${lm(k)}</td><td class="r"><span class="badge br">${fmt(d.R)}</span></td><td class="r"><span class="badge bs">${fmt(d.S)}</span></td><td class="r"><span class="badge bo">${fmt(d.OPD_other)}</span></td><td class="r">${fmt(opd)}</td><td class="r"><span class="badge bi">${fmt(d.IPD)}</span></td><td class="r"><strong>${fmt(g)}</strong></td></tr>`;
+    const [yy,mm]=k.split('-'), pg=M_SSO[(+yy-1)+'-'+mm]?ssoTot((+yy-1)+'-'+mm):0; tPrev+=pg;
+    html+=`<tr><td>${lm(k)}</td><td class="r"><span class="badge br">${fmt(d.R)}</span></td><td class="r"><span class="badge bs">${fmt(d.S)}</span></td><td class="r"><span class="badge bo">${fmt(d.OPD_other)}</span></td><td class="r">${fmt(opd)}</td><td class="r"><span class="badge bi">${fmt(d.IPD)}</span></td><td class="r"><strong>${fmt(g)}</strong></td>${yoyCell(g,pg)}</tr>`;
   });
   document.getElementById('tb-sso').innerHTML=html;
   const g=tR+tS+tO+tI;
-  document.getElementById('tf-sso').innerHTML=`<tr><td>รวม</td><td class="r">${fmt(tR)}</td><td class="r">${fmt(tS)}</td><td class="r">${fmt(tO)}</td><td class="r">${fmt(tR+tS+tO)}</td><td class="r">${fmt(tI)}</td><td class="r">${fmt(g)}</td></tr>`;
+  document.getElementById('tf-sso').innerHTML=`<tr><td>รวม</td><td class="r">${fmt(tR)}</td><td class="r">${fmt(tS)}</td><td class="r">${fmt(tO)}</td><td class="r">${fmt(tR+tS+tO)}</td><td class="r">${fmt(tI)}</td><td class="r">${fmt(g)}</td>${yoyCell(g,tPrev)}</tr>`;
 }
 function updNBtable(){
   const rows=M_NB.filter(d=>{
@@ -1044,13 +1047,19 @@ function updNHSOpie(keys){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtM(c.raw)} (${(c.raw/(tWEL+tUCS)*100).toFixed(1)}%)`}}}}
   });
 }
+function yoyCell(cur,prev){
+  if(!prev) return `<td class="r">-</td><td class="r">-</td>`;
+  const p=(cur-prev)/prev*100, col=p>=0?'#16a34a':'#dc2626', sign=p>=0?'+':'';
+  return `<td class="r">${fmt(prev)}</td><td class="r" style="color:${col};font-weight:600">${sign}${p.toFixed(1)}%</td>`;
+}
 function updNHSOtable(keys){
-  let html='',tR=0,tS=0,tW=0,tU=0,tN=0;
+  let html='',tR=0,tS=0,tW=0,tU=0,tN=0,tPrev=0;
   [...keys].reverse().forEach(k=>{const d=M_NHSO[k];tR+=d.rep;tS+=d.stm;tW+=d.wel;tU+=d.ucs;tN+=d.rows;
-    html+=`<tr><td>${lm(k)}</td><td class="r">${fmt(d.rep)}</td><td class="r">${fmt(d.stm)}</td><td class="r"><span class="badge bw">${fmt(d.wel)}</span></td><td class="r"><span class="badge br">${fmt(d.ucs)}</span></td><td class="r">${d.rows.toLocaleString()}</td></tr>`;
+    const [yy,mm]=k.split('-'), pk=(+yy-1)+'-'+mm, pd=M_NHSO[pk]; if(pd) tPrev+=pd.stm;
+    html+=`<tr><td>${lm(k)}</td><td class="r">${fmt(d.rep)}</td><td class="r">${fmt(d.stm)}</td><td class="r"><span class="badge bw">${fmt(d.wel)}</span></td><td class="r"><span class="badge br">${fmt(d.ucs)}</span></td><td class="r">${d.rows.toLocaleString()}</td>${yoyCell(d.stm,pd?pd.stm:0)}</tr>`;
   });
-  document.getElementById('tb-nhso').innerHTML=html||'<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
-  document.getElementById('tf-nhso').innerHTML=`<tr><td>รวม</td><td class="r">${fmt(tR)}</td><td class="r">${fmt(tS)}</td><td class="r">${fmt(tW)}</td><td class="r">${fmt(tU)}</td><td class="r">${tN.toLocaleString()}</td></tr>`;
+  document.getElementById('tb-nhso').innerHTML=html||'<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:20px">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
+  document.getElementById('tf-nhso').innerHTML=`<tr><td>รวม</td><td class="r">${fmt(tR)}</td><td class="r">${fmt(tS)}</td><td class="r">${fmt(tW)}</td><td class="r">${fmt(tU)}</td><td class="r">${tN.toLocaleString()}</td>${yoyCell(tS,tPrev)}</tr>`;
 }
 function updNHSO(){
   const keys=nfkeys();
@@ -1303,6 +1312,12 @@ function updOVtable(){
       const up=t>=prev;
       chg=`<span style="color:${up?'#059669':'#dc2626'};font-size:12px">${up?'▲':'▼'} ${Math.abs(d)}%</span>`;
     } else if(i===0) chg='<span style="color:#9ca3af;font-size:11px">เดือนแรก</span>';
+    const [yy,mm]=k.split('-'), py=(+yy-1)+'-'+mm, pyv=asc.includes(py)?tot(py):null;
+    let yoy='<span style="color:#e5e7eb">—</span>';
+    if(pyv && pyv>0){
+      const d=((t-pyv)/pyv*100).toFixed(1), up=t>=pyv;
+      yoy=`<span style="color:${up?'#059669':'#dc2626'};font-size:12px">${up?'▲':'▼'} ${Math.abs(d)}%</span> <span style="color:#9ca3af;font-size:11px">(${fmt(pyv)})</span>`;
+    }
     html+=`<tr>
       <td>${lm(k)}</td>
       <td class="r">${s>0?`<span class="badge br">${fmt(s)}</span>`:'<span style="color:#e5e7eb">—</span>'}</td>
@@ -1310,6 +1325,7 @@ function updOVtable(){
       <td class="r">${c>0?`<span class="badge bs">${fmt(c)}</span>`:'<span style="color:#e5e7eb">—</span>'}</td>
       <td class="r"><strong>${fmt(t)}</strong></td>
       <td class="r">${chg}</td>
+      <td class="r">${yoy}</td>
     </tr>`;
   });
   document.getElementById('tb-ov').innerHTML=html;
@@ -1317,7 +1333,7 @@ function updOVtable(){
   document.getElementById('tf-ov').innerHTML=`<tr>
     <td>รวม</td><td class="r">${fmt(tSSO)}</td><td class="r">${fmt(tNHSO)}</td><td class="r">${fmt(tCGD)}</td>
     <td class="r">${fmt(grand)}</td>
-    <td></td>
+    <td></td><td></td>
   </tr>`;
 }
 
@@ -1346,7 +1362,7 @@ function updOVfunds(){
       ${soon?'<div class="fsoon"><div style="font-size:22px">🏛️</div>รอ Upload ข้อมูล</div>':''}
     </div>`;
   document.getElementById('ov-funds').innerHTML=
-    card('#2563eb','💙','SSO ประกันสังคม',ssoM,ssoV,ssoH,false)+
+    card('#2563eb','💙','ประกันสังคม',ssoM,ssoV,ssoH,false)+
     card('#10b981','🟢','สปสช (บัตรทอง)',nhM,nhV,nhH,false)+
     card('#f59e0b','🏛️','กรมบัญชีกลาง',cgM,cgV,cgH,!cgHas);
 }
