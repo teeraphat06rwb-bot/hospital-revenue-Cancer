@@ -1407,7 +1407,7 @@ function parseSSO(wb){
   rows.slice(1).forEach(r=>{
     const mo=excelDate(r[3]); if(!mo)return;
     const hnv=String(r[6]||'').trim(), an=String(r[8]||'').trim(), hmain=String(r[13]||'').trim();
-    const prot=String(r[21]||'').trim(), stm=numv(r[38]);
+    const prot=String(r[22]||r[21]||'').trim(), stm=numv(r[38]);
     if(!M[mo])M[mo]={R:0,S:0,OPD_other:0,IPD:0,opd_rows:0,ipd_rows:0};
     if(an){M[mo].IPD+=stm;M[mo].ipd_rows++;}
     else{M[mo].opd_rows++; if(prot.endsWith('R'))M[mo].R+=stm; else if(prot.endsWith('S'))M[mo].S+=stm; else M[mo].OPD_other+=stm;}
