@@ -153,6 +153,7 @@ input[type=file]{display:none}
   <div class="nav-i" onclick="go('hmain')">🏥 รพ.ต้นทาง (HMAIN)</div>
   <div class="nav-i" onclick="go('compare')">📊 เปรียบเทียบ รพ.</div>
   <div class="nav-i" onclick="go('visits')">👥 Visit & HN</div>
+  <div class="nav-i" onclick="go('denied')">🚫 ไม่ผ่านเบิก</div>
   <div class="nav-s">ระบบ</div>
   <div class="nav-i" onclick="go('upload')">⬆ Upload ไฟล์</div>
   <div class="nav-i" onclick="go('settings')">⚙ Settings</div>
@@ -423,6 +424,42 @@ input[type=file]{display:none}
       <tbody id="tb-cgd"></tbody><tfoot id="tf-cgd"></tfoot>
     </table>
     <p class="note">* ไฟล์ CSMBS_RT (ฉายแสงสิทธิ์ข้าราชการ) — ไม่มี รพ.ต้นทาง (รักษาที่ รพ.เราเอง)</p>
+  </div>
+</div>
+
+<!-- ══ DENIED (ไม่ผ่านเบิก) ══ -->
+<div id="page-denied" class="page">
+  <div class="card">
+    <div class="ct">🚫 รายการไม่เบิก / เบิกไม่ได้ (ประกันสังคม)</div>
+    <div class="upa" onclick="document.getElementById('f-denied').click()" style="padding:18px">
+      <div style="font-size:26px;margin-bottom:4px">📂</div>
+      <p style="font-size:13px" id="dn-fname">คลิกเลือกไฟล์ SSOCAC_ส่งเบิก</p>
+      <small style="color:#6b7280">CH003_11771 - SSOCAC_ส่งเบิก_*.xlsx</small>
+      <input type="file" id="f-denied" accept=".xlsx" onchange="dnLoad(this)">
+    </div>
+    <p class="note">* อ่านไฟล์ในเบราว์เซอร์เท่านั้น ไม่บันทึกข้อมูลผู้ป่วยขึ้นระบบ · แสดงเฉพาะ HN (ไม่แสดงชื่อ/เลขบัตร)</p>
+  </div>
+  <div id="dn-body" style="display:none">
+    <div class="kr k4" id="dn-kpi"></div>
+    <div class="card">
+      <div class="tb" style="flex-wrap:wrap;gap:8px">
+        <div class="tb-t">รายการ <span id="dn-cnt" style="color:#6b7280;font-weight:400"></span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select id="dn-cat" onchange="dnFilt()" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
+          <select id="dn-mo" onchange="dnFilt()" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
+          <select id="dn-err" onchange="dnFilt()" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px"></select>
+          <input id="dn-hn" placeholder="ค้นหา HN" oninput="dnFilt()" style="padding:5px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;width:120px">
+          <button class="btn btn-o" onclick="dnCsv()">⬇ CSV</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>วันที่รับบริการ</th><th>HN</th><th>OPD/IPD</th><th>รพ.ต้นทาง</th><th>Protocol</th><th>หมวด</th><th>รอบ STM</th><th class="r">ยอดใบเสร็จ</th><th class="r">ยื่นเบิก</th><th class="r">จ่ายจริง</th><th class="r">ขาด</th><th>รหัส</th><th>สาเหตุ</th></tr></thead>
+        <tbody id="dn-tb"></tbody>
+      </table>
+      <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-top:10px;font-size:12px">
+        <button class="btn btn-o" onclick="dnPg(-1)">◀</button><span id="dn-pg"></span><button class="btn btn-o" onclick="dnPg(1)">▶</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -907,8 +944,70 @@ function updHmainMoPills(){
 }
 function hfm(m){hMonth=m;updHmain();}
 
+/* ═══ DENIED (ไม่ผ่านเบิก) ═══ */
+let DN_ALL=[], DN_VIEW=[], DN_PAGE=0;
+const DN_PER=100;
+async function dnLoad(inp){
+  const f=inp.files[0]; if(!f)return;
+  document.getElementById('dn-fname').textContent='⏳ กำลังอ่านไฟล์ '+f.name+' ...';
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}).slice(1);
+    DN_ALL=[];
+    rows.forEach(r=>{
+      const st=String(r[28]||'').trim(), code=String(r[31]||''), m=code.match(/SCACSTM_(\d{4})(\d{2})/);
+      const d39=numv(r[39]), d36=numv(r[36]);
+      let cat='';
+      if(st==='ไม่เบิก')cat='ไม่เบิก';
+      else if(!m)cat='ส่งเบิกแล้ว รอเข้ารอบ STM';
+      else if(d39>0||d36>0)cat='จ่ายขาด';
+      if(!cat)return;
+      const dt=String(r[3]||'').slice(0,10);
+      DN_ALL.push({dt,mo:dt.slice(0,7),hn:String(r[6]||'').trim(),an:String(r[8]||'').trim()?'IPD':'OPD',hm:String(r[13]||'').trim(),
+        prot:String(r[22]||r[21]||'').trim(),cat,rnd:m?m[1]+'-'+m[2]:'',rc:numv(r[32]),cl:numv(r[34]),pay:numv(r[38]),short:d39||d36,
+        err:String(r[41]||'').trim(),why:String(r[42]||'').trim()});
+    });
+    document.getElementById('dn-fname').textContent='✓ '+f.name+' ('+DN_ALL.length.toLocaleString()+' รายการ)';
+    dnInitFilters(); dnFilt();
+    document.getElementById('dn-body').style.display='block';
+  }catch(e){document.getElementById('dn-fname').textContent='❌ อ่านไฟล์ไม่ได้: '+e.message;}
+}
+function dnInitFilters(){
+  const opt=(id,all,vals)=>{document.getElementById(id).innerHTML=`<option value="">${all}</option>`+vals.map(v=>`<option value="${v}">${v}</option>`).join('');};
+  opt('dn-cat','ทุกหมวด',[...new Set(DN_ALL.map(x=>x.cat))]);
+  opt('dn-mo','ทุกเดือนที่รับบริการ',[...new Set(DN_ALL.map(x=>x.mo))].sort());
+  opt('dn-err','ทุกรหัส',[...new Set(DN_ALL.map(x=>x.err).filter(Boolean))].sort());
+}
+function dnFilt(){
+  const c=document.getElementById('dn-cat').value, m=document.getElementById('dn-mo').value, e=document.getElementById('dn-err').value, h=document.getElementById('dn-hn').value.trim();
+  DN_VIEW=DN_ALL.filter(x=>(!c||x.cat===c)&&(!m||x.mo===m)&&(!e||x.err===e)&&(!h||x.hn.includes(h)));
+  DN_PAGE=0; dnRender();
+}
+function dnPg(d){const n=Math.max(1,Math.ceil(DN_VIEW.length/DN_PER));DN_PAGE=Math.min(n-1,Math.max(0,DN_PAGE+d));dnRender();}
+function dnRender(){
+  const f=n=>n?n.toLocaleString(undefined,{maximumFractionDigits:0}):'-';
+  const sum=k=>DN_VIEW.reduce((a,x)=>a+x[k],0), hn=new Set(DN_VIEW.map(x=>x.hn)).size;
+  const kp=(c,l,v,s)=>`<div class="kpi" style="--c:${c}"><div class="lb">${l}</div><div class="vl">${v}</div><div class="sb">${s}</div></div>`;
+  document.getElementById('dn-kpi').innerHTML=
+    kp('#ef4444','รายการ',DN_VIEW.length.toLocaleString(),'ตามตัวกรองที่เลือก')+
+    kp('#7c3aed','HN (คนไข้)',hn.toLocaleString(),'ไม่ซ้ำ')+
+    kp('#f59e0b','ยอดใบเสร็จรวม',f(sum('rc'))+' ฿','ค่ารักษาทั้งหมด')+
+    kp('#059669','ยอดขาด (จ่ายไม่ครบ)',f(sum('short'))+' ฿','เฉพาะหมวดจ่ายขาด');
+  document.getElementById('dn-cnt').textContent='('+DN_VIEW.length.toLocaleString()+')';
+  const st=DN_PAGE*DN_PER, pg=DN_VIEW.slice(st,st+DN_PER), n=Math.max(1,Math.ceil(DN_VIEW.length/DN_PER));
+  document.getElementById('dn-tb').innerHTML=pg.map(x=>`<tr><td>${x.dt}</td><td>${x.hn}</td><td>${x.an}</td><td>${x.hm}</td><td>${x.prot}</td><td>${x.cat}</td><td>${x.rnd?lm(x.rnd):'-'}</td><td class="r">${f(x.rc)}</td><td class="r">${f(x.cl)}</td><td class="r">${f(x.pay)}</td><td class="r">${f(x.short)}</td><td>${x.err||'-'}</td><td style="font-size:11px;color:#6b7280">${x.why}</td></tr>`).join('')||'<tr><td colspan="13" style="text-align:center;color:#9ca3af">ไม่มีรายการ</td></tr>';
+  document.getElementById('dn-pg').textContent='หน้า '+(DN_PAGE+1)+' / '+n;
+}
+function dnCsv(){
+  const h=['วันที่รับบริการ','HN','OPD/IPD','รพ.ต้นทาง','Protocol','หมวด','รอบ STM','ยอดใบเสร็จ','ยื่นเบิก','จ่ายจริง','ขาด','รหัส','สาเหตุ'];
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const body=DN_VIEW.map(x=>[x.dt,x.hn,x.an,x.hm,x.prot,x.cat,x.rnd,x.rc,x.cl,x.pay,x.short,x.err,x.why].map(q).join(','));
+  const blob=new Blob(['\ufeff'+[h.map(q).join(',')].concat(body).join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ไม่ผ่านเบิก.csv'; a.click();
+}
+
 /* ═══ NAV ═══ */
-const TITLES={overview:'ภาพรวมทั้งหมด',sso:'ประกันสังคม',nhso:'สปสช',cgd:'กรมบัญชีกลาง',hmain:'รพ.ต้นทาง (HMAIN)',compare:'เปรียบเทียบ รพ.',visits:'Visit & HN',upload:'Upload ไฟล์',settings:'Settings'};
+const TITLES={overview:'ภาพรวมทั้งหมด',sso:'ประกันสังคม',nhso:'สปสช',cgd:'กรมบัญชีกลาง',denied:'ไม่ผ่านเบิก / เบิกไม่ได้ (ประกันสังคม)',hmain:'รพ.ต้นทาง (HMAIN)',compare:'เปรียบเทียบ รพ.',visits:'Visit & HN',upload:'Upload ไฟล์',settings:'Settings'};
 function go(p){
   document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
@@ -1405,7 +1504,8 @@ function parseSSO(wb){
   const rows=utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
   const M={}, HM={}, hnO={};
   rows.slice(1).forEach(r=>{
-    const mo=excelDate(r[3]); if(!mo)return;
+    const stmCode=String(r[31]||''); const stmM=stmCode.match(/SCACSTM_(\d{4})(\d{2})/);
+    if(!stmM)return; const mo=stmM[1]+'-'+stmM[2];
     const hnv=String(r[6]||'').trim(), an=String(r[8]||'').trim(), hmain=String(r[13]||'').trim();
     const prot=String(r[22]||r[21]||'').trim(), stm=numv(r[38]);
     if(!M[mo])M[mo]={R:0,S:0,OPD_other:0,IPD:0,opd_rows:0,ipd_rows:0};
