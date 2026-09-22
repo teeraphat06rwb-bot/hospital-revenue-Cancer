@@ -254,7 +254,7 @@ input[type=file]{display:none}
 
 <!-- ══ SSO ══ -->
 <div id="page-sso" class="page">
-  <div class="kr k5">
+  <div class="kr k4">
     <div class="kpi" style="--c:#1a56db">
       <div class="lb">รวม OPD+IPD</div><div class="vl" id="k-tot">—</div><div class="sb" id="k-tot-s">—</div>
     </div>
@@ -267,19 +267,17 @@ input[type=file]{display:none}
     <div class="kpi" style="--c:#3b82f6">
       <div class="lb">OPD-R ฉายแสง</div><div class="vl" id="k-r">—</div><div class="sb" id="k-r-s">—</div>
     </div>
-    <div class="kpi" style="--c:#dc2626">
-      <div class="lb">ไม่ผ่าน (ไม่เบิก)</div><div class="vl">557,809 ฿</div><div class="sb">7,798 รายการ</div>
-    </div>
   </div>
+  <p class="note" style="margin:-6px 0 10px">🚫 รายการไม่ผ่านเบิก ดูได้ที่เมนู "ไม่ผ่านเบิก" ทางซ้าย (รายการจริงจากไฟล์ ไม่ใช่ตัวเลขตายตัว)</p>
   <div class="stabs">
-    <div class="stab active" onclick="ssoTab('m',this)">📅 รายเดือน</div>
-    <div class="stab" onclick="ssoTab('nb',this)">❌ ไม่ผ่านเบิก</div>
+    <div class="stab active" onclick="ssoTab('m',this)">📅 ตามรอบ STM</div>
+    <div class="stab" onclick="ssoTab('svc',this)">📆 ตามวันที่รับบริการ</div>
   </div>
 
   <div id="sp-m" class="sp active">
     <div class="card">
       <div class="tb">
-        <div class="tb-t">ยอดรายเดือน (STM จ่ายจริง)</div>
+        <div class="tb-t">ยอดตามรอบ STM (จ่ายจริง)</div>
         <div class="vbs"><div class="vb active" onclick="sv('stacked',this)">Stacked</div><div class="vb" onclick="sv('line',this)">Line</div></div>
       </div>
       <div class="tb" style="margin-bottom:8px">
@@ -304,29 +302,36 @@ input[type=file]{display:none}
     </div>
     <div class="card">
       <table>
-        <thead><tr><th>เดือน</th><th class="r">OPD-R</th><th class="r">OPD-S</th><th class="r">OPD-อื่นๆ</th><th class="r">รวม OPD</th><th class="r">IPD</th><th class="r">รวม</th><th class="r">รวมปีก่อน</th><th class="r">%โต YoY</th></tr></thead>
+        <thead><tr><th>รอบ STM</th><th class="r">OPD-R</th><th class="r">OPD-S</th><th class="r">OPD-อื่นๆ</th><th class="r">รวม OPD</th><th class="r">IPD</th><th class="r">รวม</th><th class="r">รวมปีก่อน</th><th class="r">%โต YoY</th></tr></thead>
         <tbody id="tb-sso"></tbody><tfoot id="tf-sso"></tfoot>
       </table>
-      <p class="note">* STM = SCACSTM-SSOPay | IPD จ่ายตาม DRG</p>
+      <p class="note">* STM = SCACSTM-SSOPay | IPD จ่ายตาม DRG · จัดกลุ่มตามรอบปิดบัญชี STM (วันที่ปิดรอบเบิกจ่ายเงิน) ไม่ใช่เดือนที่ผู้ป่วยมารับบริการจริง — ดูตามวันที่รับบริการได้ที่แท็บ "ตามวันที่รับบริการ"</p>
     </div>
   </div>
 
-  <div id="sp-nb" class="sp">
-    <div class="ab">
-      <div class="at">⚠ ไม่ผ่านการเบิก — 7,798 รายการ | ยอดตกหล่น 557,809 บาท</div>
-      <div class="er"><span class="ec">CA2</span><span class="ed">ไม่พบรายการขอเบิกรักษาโรคมะเร็ง (col34 ส่วนใหญ่=0)</span><span class="en">6,275 ราย</span><span class="ea">40,320 ฿</span></div>
-      <div class="er"><span class="ec">CA2,CD1</span><span class="ed">ไม่มีรหัสวินิจฉัยสอดคล้อง Protocol</span><span class="en">1,503 ราย</span><span class="ea">0 ฿</span></div>
-      <div class="er"><span class="ec">CAA</span><span class="ed">ข้อผิดพลาดอื่น (ยอดสูงสุด)</span><span class="en">17 ราย</span><span class="ea">434,602 ฿</span></div>
-      <div class="er"><span class="ec">อื่นๆ</span><span class="ed">CA7, CAL, R61, T61</span><span class="en">3 ราย</span><span class="ea">82,887 ฿</span></div>
-    </div>
+  <div id="sp-svc" class="sp">
     <div class="card">
-      <table>
-        <thead><tr><th>เดือน</th><th class="r">รายการ</th><th class="r">ยอดเงิน (฿)</th><th>หมายเหตุ</th></tr></thead>
-        <tbody id="tb-nb"></tbody><tfoot id="tf-nb"></tfoot>
-      </table>
-      <p class="note">* CA2 ส่วนใหญ่ col34=0 ไม่ใช่ข้อมูลหาย</p>
+      <div class="ct">📆 ยอด SSO ตามวันที่รับบริการ (ประมาณการ)</div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">คำนวณจากไฟล์ SSOCAC ที่เลือก แยกยอดตามเดือนที่ผู้ป่วยมารับบริการจริง (ไม่ใช่รอบจ่ายเงิน) · นับเฉพาะรายการที่เข้ารอบ STM แล้ว เดือนล่าสุด 1-2 เดือนอาจยังไม่ครบเพราะเคสยังไม่เข้ารอบเบิก · อ่านไฟล์ในเบราว์เซอร์เท่านั้น ไม่บันทึกขึ้นระบบ</p>
+      <div class="upa" onclick="document.getElementById('f-svc').click()">
+        <div style="font-size:26px;margin-bottom:4px">📂</div>
+        <p style="font-size:13px" id="svc-fname">คลิกเลือกไฟล์ SSOCAC_ส่งเบิก</p>
+        <small style="color:#6b7280">CH003_11771 - SSOCAC_ส่งเบิก_*.xlsx</small>
+        <input type="file" id="f-svc" accept=".xlsx" onchange="svcLoad(this)">
+      </div>
+    </div>
+    <div id="svc-body" style="display:none">
+      <div class="card">
+        <table>
+          <thead><tr><th>เดือนรับบริการ</th><th class="r">OPD-R</th><th class="r">OPD-S</th><th class="r">OPD-อื่นๆ</th><th class="r">รวม OPD</th><th class="r">IPD</th><th class="r">รวม</th><th class="r">เคส</th></tr></thead>
+          <tbody id="tb-svc"></tbody><tfoot id="tf-svc"></tfoot>
+        </table>
+        <p class="note">* เดือนล่าสุดอาจยอดต่ำกว่าจริง เพราะเคสยังไม่ถูกเบิกเข้ารอบ STM ครบ</p>
+      </div>
     </div>
   </div>
+
+
 </div>
 
 <!-- ══ NHSO ══ -->
@@ -867,16 +872,6 @@ const M_SSO = {
   "2026-04":{"R":4917780,"S":3930,"OPD_other":326234,"IPD":2264204,"opd_rows":1077,"ipd_rows":91},
   "2026-05":{"R":208925,"S":230,"OPD_other":4900,"IPD":143178,"opd_rows":51,"ipd_rows":9}
 };
-const M_NB=[
-  {"month":"2025-02","rows":199,"amount":0},{"month":"2025-03","rows":749,"amount":57996},
-  {"month":"2025-04","rows":563,"amount":58041},{"month":"2025-05","rows":634,"amount":11520},
-  {"month":"2025-06","rows":523,"amount":61412},{"month":"2025-07","rows":548,"amount":69951},
-  {"month":"2025-08","rows":507,"amount":43788},{"month":"2025-09","rows":486,"amount":51804},
-  {"month":"2025-10","rows":505,"amount":77808},{"month":"2025-11","rows":537,"amount":36251},
-  {"month":"2025-12","rows":487,"amount":83477},{"month":"2026-01","rows":553,"amount":0},
-  {"month":"2026-02","rows":487,"amount":0},{"month":"2026-03","rows":517,"amount":0},
-  {"month":"2026-04","rows":459,"amount":5760},{"month":"2026-05","rows":44,"amount":0}
-];
 const M_NHSO = {
   "2025-01":{"rep":4756160,"stm":4884210,"wel":3803331,"ucs":952829,"rows":1065},
   "2025-02":{"rep":4003429,"stm":4219429,"wel":2776789,"ucs":1226640,"rows":887},
@@ -1064,28 +1059,46 @@ function updSSOtable(){
     const d=M_SSO[k],opd=d.R+d.S+d.OPD_other,g=opd+d.IPD;
     tR+=d.R;tS+=d.S;tO+=d.OPD_other;tI+=d.IPD;
     const [yy,mm]=k.split('-'), pg=M_SSO[(+yy-1)+'-'+mm]?ssoTot((+yy-1)+'-'+mm):0; tPrev+=pg;
-    html+=`<tr><td>${lm(k)}</td><td class="r"><span class="badge br">${fmt(d.R)}</span></td><td class="r"><span class="badge bs">${fmt(d.S)}</span></td><td class="r"><span class="badge bo">${fmt(d.OPD_other)}</span></td><td class="r">${fmt(opd)}</td><td class="r"><span class="badge bi">${fmt(d.IPD)}</span></td><td class="r"><strong>${fmt(g)}</strong></td>${yoyCell(g,pg)}</tr>`;
+    html+=`<tr><td>${lm(k)} <span style="color:#9ca3af;font-weight:400;font-size:11px">(SCACSTM_${k.replace('-','')})</span></td><td class="r"><span class="badge br">${fmt(d.R)}</span></td><td class="r"><span class="badge bs">${fmt(d.S)}</span></td><td class="r"><span class="badge bo">${fmt(d.OPD_other)}</span></td><td class="r">${fmt(opd)}</td><td class="r"><span class="badge bi">${fmt(d.IPD)}</span></td><td class="r"><strong>${fmt(g)}</strong></td>${yoyCell(g,pg)}</tr>`;
   });
   document.getElementById('tb-sso').innerHTML=html;
   const g=tR+tS+tO+tI;
   document.getElementById('tf-sso').innerHTML=`<tr><td>รวม</td><td class="r">${fmt(tR)}</td><td class="r">${fmt(tS)}</td><td class="r">${fmt(tO)}</td><td class="r">${fmt(tR+tS+tO)}</td><td class="r">${fmt(tI)}</td><td class="r">${fmt(g)}</td>${yoyCell(g,tPrev)}</tr>`;
 }
-function updNBtable(){
-  const rows=M_NB.filter(d=>{
-    if(sYear!=='all'&&!d.month.startsWith(sYear)) return false;
-    if(sMonth!=='all'&&d.month.split('-')[1]!==sMonth) return false;
-    return true;
-  });
-  let html='',tR=0,tA=0;
-  [...rows].reverse().forEach(d=>{
-    tR+=d.rows;tA+=d.amount;
-    html+=`<tr><td>${lm(d.month)}</td><td class="r">${d.rows.toLocaleString()}</td><td class="r">${d.amount>0?`<span class="badge bn">${fmt(d.amount)} ฿</span>`:'<span style="color:#9ca3af">0</span>'}</td><td>${d.amount===0?'<span style="font-size:11px;color:#9ca3af">CA2 (col34=0)</span>':''}</td></tr>`;
-  });
-  document.getElementById('tb-nb').innerHTML=html;
-  document.getElementById('tf-nb').innerHTML=`<tr><td>รวม</td><td class="r">${tR.toLocaleString()}</td><td class="r">${fmt(tA)} ฿</td><td></td></tr>`;
+function updSSO(){updSSOkpi();updSSOchart();updSSOtable();}
+function ssoTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('active'));el.classList.add('active');document.getElementById('sp-m').classList.toggle('active',t==='m');document.getElementById('sp-svc').classList.toggle('active',t==='svc');}
+let SVC_M={};
+async function svcLoad(inp){
+  const f=inp.files[0]; if(!f)return;
+  document.getElementById('svc-fname').textContent='⏳ กำลังอ่านไฟล์ '+f.name+' ...';
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}).slice(1);
+    SVC_M={};
+    rows.forEach(r=>{
+      if(!/SCACSTM_\d{6}/.test(String(r[31]||'')))return; // เฉพาะที่เข้ารอบ STM แล้ว (มีเงินจ่ายจริง)
+      const mo=String(r[3]||'').slice(0,7); if(!/^\d{4}-\d{2}$/.test(mo))return;
+      const an=String(r[8]||'').trim(), prot=String(r[22]||r[21]||'').trim(), amt=numv(r[38]);
+      if(!SVC_M[mo])SVC_M[mo]={R:0,S:0,OPD_other:0,IPD:0,opd_rows:0,ipd_rows:0};
+      if(an){SVC_M[mo].IPD+=amt;SVC_M[mo].ipd_rows++;}
+      else{SVC_M[mo].opd_rows++; if(prot.endsWith('R'))SVC_M[mo].R+=amt; else if(prot.endsWith('S'))SVC_M[mo].S+=amt; else SVC_M[mo].OPD_other+=amt;}
+    });
+    document.getElementById('svc-fname').textContent='✓ '+f.name+' ('+Object.keys(SVC_M).length+' เดือน)';
+    document.getElementById('svc-body').style.display='block';
+    svcRender();
+  }catch(e){document.getElementById('svc-fname').textContent='❌ อ่านไฟล์ไม่ได้: '+e.message;}
 }
-function updSSO(){updSSOkpi();updSSOchart();updSSOtable();updNBtable();}
-function ssoTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('active'));el.classList.add('active');document.getElementById('sp-m').classList.toggle('active',t==='m');document.getElementById('sp-nb').classList.toggle('active',t==='nb');}
+function svcRender(){
+  const keys=Object.keys(SVC_M).sort().reverse();
+  let tR=0,tS=0,tO=0,tI=0,tN=0,html='';
+  keys.forEach(k=>{
+    const d=SVC_M[k],opd=d.R+d.S+d.OPD_other,g=opd+d.IPD,n=d.opd_rows+d.ipd_rows;
+    tR+=d.R;tS+=d.S;tO+=d.OPD_other;tI+=d.IPD;tN+=n;
+    html+=`<tr><td>${lm(k)}</td><td class="r">${fmt(d.R)}</td><td class="r">${fmt(d.S)}</td><td class="r">${fmt(d.OPD_other)}</td><td class="r">${fmt(opd)}</td><td class="r">${fmt(d.IPD)}</td><td class="r"><b>${fmt(g)}</b></td><td class="r">${n.toLocaleString()}</td></tr>`;
+  });
+  document.getElementById('tb-svc').innerHTML=html||'<tr><td colspan="8" style="text-align:center;color:#9ca3af">ไม่มีข้อมูล</td></tr>';
+  document.getElementById('tf-svc').innerHTML=`<tr><td>รวม</td><td class="r">${fmt(tR)}</td><td class="r">${fmt(tS)}</td><td class="r">${fmt(tO)}</td><td class="r">${fmt(tR+tS+tO)}</td><td class="r">${fmt(tI)}</td><td class="r"><b>${fmt(tR+tS+tO+tI)}</b></td><td class="r">${tN.toLocaleString()}</td></tr>`;
+}
 function sv(v,el){sView=v;document.querySelectorAll('#page-sso .vb').forEach(b=>b.classList.remove('active'));el.classList.add('active');updSSOchart();}
 function sf(y,el){
   sYear=y; sMonth='all';
